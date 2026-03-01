@@ -1,0 +1,90 @@
+:root {
+    --brand-500: #10b981;
+    --brand-600: #059669;
+    --brand-400: #34d399;
+    --text-on-brand: #ffffff;
+    --surface-100: #f8faf9;
+}
+
+/* FORCE: target banyak kemungkinan class/id untuk sidebar */
+.sidebar,
+.main-sidebar,
+nav.sidebar,
+aside.sidebar,
+.app-sidebar,
+.left-sidebar,
+#sidebar,
+#main-sidebar,
+.sidebar-wrapper,
+.sidebar-menu,
+.site-sidebar {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.03)) !important;
+    background-color: rgba(16, 185, 129, 0.04) !important;
+    color: #032617 !important;
+    border-right: 1px solid rgba(6, 95, 70, 0.06) !important;
+}
+
+/* Jika sidebar memiliki area kiri penuh (solid header) */
+.sidebar .sidebar-header,
+.main-sidebar .sidebar-header,
+aside.sidebar .sidebar-header {
+    background: linear-gradient(90deg, var(--brand-600), var(--brand-500)) !important;
+    color: var(--text-on-brand) !important;
+}
+
+/* Nav links */
+.sidebar .nav-link,
+.main-sidebar .nav-link,
+nav.sidebar .nav-link,
+.sidebar-menu .nav-link,
+.sidebar .menu-item>a {
+    color: #042a1f !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+}
+
+.sidebar .nav-link:hover,
+.main-sidebar .nav-link:hover,
+.sidebar .menu-item>a:hover {
+    background: rgba(16, 185, 129, 0.06) !important;
+    color: var(--brand-700) !important;
+}
+
+/* Active item */
+.sidebar .nav-link.active,
+.main-sidebar .nav-item.active>.nav-link,
+.sidebar .menu-item.active>a {
+    background: linear-gradient(90deg, var(--brand-400), var(--brand-500)) !important;
+    color: var(--text-on-brand) !important;
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.12) !important;
+}
+
+/* Icons */
+.sidebar .nav-link i,
+.main-sidebar .nav-link i,
+.sidebar .fa {
+    color: var(--brand-600) !important;
+}
+
+/* If the app uses a collapsed/overlay sidebar with IDs/classes */
+#sidebar,
+#sidebarCollapsed,
+.side-panel {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.04), transparent) !important;
+}
+
+/* Ensure brand/logo in sidebar visible */
+.sidebar .brand,
+.main-sidebar .brand,
+.sidebar .site-logo {
+    color: var(--brand-600) !important;
+}
+
+/* If you prefer a solid green sidebar, uncomment the block below */
+/*
+.sidebar, .main-sidebar {
+  background: var(--brand-500) !important;
+  color: var(--text-on-brand) !important;
+}
+.sidebar .nav-link, .main-sidebar .nav-link { color: var(--text-on-brand) !important; }
+*/
