@@ -32,7 +32,7 @@ class ProcessSchedules extends Command
         $currentTime = $now->format('H:i');
         $currentDay = $now->dayOfWeek; // 0 (Sunday) to 6 (Saturday)
 
-        $this->info("Processing schedules for {$currentTime} (Day: {$currentDay})...");
+        $this->info("Processing schedules for {$currentTime} (Day: {$currentDay}) [TZ: " . config('app.timezone') . "]");
 
         $widgetConfigs = Widget::with('device.user')->get();
         $triggeredCount = 0;
@@ -60,7 +60,7 @@ class ProcessSchedules extends Command
                     
                     // DEBUG: Log mismatch
                     if ($scheduleTime !== $currentTime) {
-                        // $this->info("   -> Skipping: {$scheduleTime} != {$currentTime}");
+                        $this->line("   -> Skip: schedule={$scheduleTime} != now={$currentTime}");
                         continue;
                     }
 
