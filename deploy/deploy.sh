@@ -22,9 +22,15 @@ php artisan route:cache
 php artisan view:cache
 php artisan icon:cache
 
-# 6. Restart Queue & Services
-php artisan queue:restart
-# If using Supervisor, it might automatically restart workers, 
-# but we can manually restart if needed via aaPanel Supervisor Manager.
+# 6. Restart Queue & Services via Supervisor
+echo "🔄 Restarting Supervisor processes..."
+if command -v supervisorctl &> /dev/null; then
+    sudo supervisorctl restart smarthom:*
+    echo "✅ Supervisor processes restarted."
+else
+    echo "⚠️  supervisorctl not found. Restart manually if needed."
+    # Fallback: signal queue workers to restart gracefully
+    php artisan queue:restart
+fi
 
 echo "✅ Deployment Successful!"
