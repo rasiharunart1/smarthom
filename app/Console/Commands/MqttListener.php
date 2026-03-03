@@ -51,24 +51,58 @@ class MqttListener extends Command
 
     private function subscribeToTopics()
     {
-        // Topik sensors fleksibel
+        // Topik sensors — data dari DEVICE ke server
         $sensorsTopic = 'users/+/devices/+/sensors/+';
         $this->mqtt->subscribe($sensorsTopic, function ($topic, $message) {
-            $this->handleMessage($topic, $message);
+            $this->handleMessage($topic, $message, 'sensors');
         }, 1);
         $this->info("📡 Subscribed to: {$sensorsTopic}");
 
-        // Topik control (Sekarang dihandle juga untuk update status widget di DB)
+        // Topik control — dikirim DARI server ke device, TIDAK update last_seen_at
         $controlTopic = 'users/+/devices/+/control/+';
         $this->mqtt->subscribe($controlTopic, function ($topic, $message) {
-            $this->handleMessage($topic, $message);
+            $this->handleMessage($topic, $message, 'control');
         }, 1);
         $this->info("📡 Subscribed to: {$controlTopic}");
+
+        // Topik heartbeat — khusus untuk status device online/offline
+        $heartbeatTopic = 'users/+/devices/+/heartbeat';
+        $this->mqtt->subscribe($heartbeatTopic, function ($topic, $message) {
+            $this->handleHeartbeat($topic, $message);
+        }, 1);
+        $this->info("📡 Subscribed to: {$heartbeatTopic}");
 
         $this->info("🔄 Listening & Recording...\n");
     }
 
-    private function handleMessage($topic, $message)
+    /**
+     * Handle heartbeat messages — ONLY these update device online status.
+     * Topic: users/{userId}/devices/{deviceCode}/heartbeat
+     * Payload: any (e.g. "1", "ok", uptime seconds)
+     */
+    private function handleHeartbeat(string $topic, string $message): void
+    {
+        if (!preg_match('/^users\/(\d+)\/devices\/([^\/]+)\/heartbeat$/', $topic, $matches)) {
+            return;
+        }
+
+        $userId     = (int) $matches[1];
+        $deviceCode = $matches[2];
+
+        $device = Device::where('device_code', $deviceCode)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$device) {
+            $this->warn("❌ Heartbeat: Device not found: {$deviceCode}");
+            return;
+        }
+
+        $device->markAsOnline();
+        $this->info("💓 Heartbeat [{$deviceCode}]: online (payload={$message})");
+    }
+
+    private function handleMessage(string $topic, string $message, string $direction = 'sensors'): void
     {
         $timestamp = now()->format('Y-m-d H:i:s');
         $this->line("[$timestamp] 📥 {$topic} = {$message}");
@@ -100,7 +134,11 @@ class MqttListener extends Command
                 return;
             }
 
-            $device->markAsOnline();
+            // ✅ Hanya sensor yg dikirim dari device yg update last_seen_at
+            // Control topic = perintah yg kita kirim KE device, bukan dari device
+            if ($direction === 'sensors') {
+                $device->markAsOnline();
+            }
 
             $widgetsData = $device->widget->widgets_data ?? [];
 

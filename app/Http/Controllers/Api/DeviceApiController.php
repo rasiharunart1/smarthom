@@ -283,8 +283,8 @@ class DeviceApiController extends Controller
             ], 404);
         }
 
-        // Update device status
-        $device->markAsOnline();
+        // ❌ Tidak markAsOnline di sini — ini dipanggil dari user dashboard,
+        //    bukan dari device. Status device hanya diupdate via heartbeat MQTT.
 
         // Update widget value
         $oldValue = $widget['value'];
@@ -372,7 +372,8 @@ class DeviceApiController extends Controller
             'widgets.*.value' => 'required'
         ]);
 
-        $device->markAsOnline();
+        // ❌ Tidak markAsOnline di sini — ini dipanggil dari user/dashboard,
+        //    bukan dari device fisik.
 
         $updated = [];
         $errors = [];
