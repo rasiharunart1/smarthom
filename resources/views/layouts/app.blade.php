@@ -64,108 +64,434 @@
             min-height: 100vh;
         }
 
-        /* Dark Glass Morphism Topbar */
+        /* =====================
+           TOP HEADER BAR
+        ===================== */
         .topbar-glass {
-            background: rgba(10, 14, 39, 0.7);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(10, 14, 39, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-            padding: 0;
-            position: sticky;
-            top: 0;
-            z-index: 1030;
-        }
-
-        .topbar-container {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            z-index: 1040;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem 2rem;
-            max-width: 100%;
+            padding: 0 1.25rem;
+            gap: 1rem;
+        }
+
+        /* Sidebar toggle button */
+        .sidebar-toggle-btn {
+            width: 38px;
+            height: 38px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--primary-green);
+            color: var(--primary-green-light);
         }
 
         /* Brand Logo */
         .brand-section {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.75rem;
+            flex: 1;
         }
 
         .brand-logo {
-            width: 45px;
-            height: 45px;
+            width: 38px;
+            height: 38px;
             background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark));
-            border-radius: 12px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            flex-shrink: 0;
         }
 
         .brand-logo img {
-            width: 35px;
-            height: 35px;
+            width: 28px;
+            height: 28px;
             object-fit: contain;
         }
 
         .brand-text {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             background: linear-gradient(135deg, var(--primary-green-light), var(--primary-green));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            white-space: nowrap;
         }
 
-        /* Navigation Menu */
-        .nav-menu {
+        /* Device selector in topbar */
+        .device-selector-wrapper {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+        }
+
+        .device-selector select {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: var(--text-primary);
+            padding: 0.45rem 1rem;
+            font-weight: 500;
+            min-width: 180px;
+            transition: all 0.3s ease;
+        }
+
+        .device-selector select:focus {
+            background: rgba(255, 255, 255, 0.08);
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        .device-selector select option {
+            background: var(--dark-bg-2);
+            color: var(--text-primary);
+        }
+
+        /* =====================
+           LEFT SIDEBAR
+        ===================== */
+        :root {
+            --sidebar-width: 240px;
+            --sidebar-collapsed-width: 62px;
+            --topbar-height: 60px;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: var(--topbar-height);
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - var(--topbar-height));
+            background: rgba(10, 14, 39, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+            z-index: 1035;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Collapsed state (desktop) */
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+        }
+
+        /* Mobile: slide out by default */
+        @media (max-width: 991px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-width);
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+        }
+
+        /* Sidebar Nav */
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 1rem 0;
+        }
+
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.2);
+            border-radius: 4px;
+        }
+
+        .nav-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            padding: 0.75rem 1.2rem 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            opacity: 1;
+            transition: opacity 0.2s;
+        }
+
+        .sidebar.collapsed .nav-section-label {
+            opacity: 0;
+        }
+
+        /* Nav Menu Items */
+        .nav-menu {
             list-style: none;
             margin: 0;
+            padding: 0 0.6rem;
         }
 
         .nav-menu-item {
-            position: relative;
+            margin-bottom: 2px;
         }
 
         .nav-menu-link {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.6rem 1.2rem;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 0.85rem;
+            padding: 0.7rem 0.85rem;
             border-radius: 10px;
             color: var(--text-secondary);
             text-decoration: none;
             font-weight: 500;
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .nav-menu-link span {
+            opacity: 1;
+            transition: opacity 0.2s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar.collapsed .nav-menu-link span {
+            opacity: 0;
+            width: 0;
         }
 
         .nav-menu-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.07);
             color: var(--text-primary);
             text-decoration: none;
-            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .nav-menu-link.active {
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark));
-            border-color: var(--primary-green);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-            color: white;
+            background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.25));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--primary-green-light);
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.15);
         }
 
         .nav-menu-icon {
-            font-size: 1.1rem;
+            font-size: 1rem;
+            flex-shrink: 0;
+            width: 20px;
+            text-align: center;
         }
+
+        /* Tooltip on collapsed sidebar */
+        .nav-menu-link[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: calc(var(--sidebar-collapsed-width) - 4px);
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 9999;
+        }
+
+        .sidebar.collapsed .nav-menu-link[data-tip]:hover::after {
+            opacity: 1;
+        }
+
+        /* Nav divider */
+        .nav-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 0.5rem 1rem;
+        }
+
+        /* =====================
+           OVERLAY (mobile)
+        ===================== */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            top: var(--topbar-height);
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(2px);
+            z-index: 1034;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        /* =====================
+           MAIN CONTENT AREA
+        ===================== */
+        #content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-left: var(--sidebar-width);
+            margin-top: var(--topbar-height);
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: calc(100vh - var(--topbar-height));
+        }
+
+        #content-wrapper.sidebar-collapsed {
+            margin-left: var(--sidebar-collapsed-width);
+        }
+
+        @media (max-width: 991px) {
+            #content-wrapper {
+                margin-left: 0 !important;
+            }
+        }
+
+        #content {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        /* Container Fluid Adjustments */
+        .container-fluid {
+            max-width: 100%;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        /* User Menu */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-profile-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .user-profile-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            text-decoration: none;
+            color: var(--text-primary);
+            border-color: var(--primary-green);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 576px) {
+            .user-name { display: none; }
+            .brand-text { display: none; }
+        }
+
+        /* Dropdown Menu */
+        .dropdown-menu-glass {
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item-glass {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1rem;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .dropdown-item-glass:hover {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary-green-light);
+            text-decoration: none;
+        }
+
+        .dropdown-divider {
+            margin: 0.4rem 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            #content { padding: 1rem; }
+            .widget-wrapper {
+                padding: 5px;
+                height: calc(100% - 10px);
+            }
+            .value-large { font-size: 2rem; }
+            .gauge-modern-container { width: 120px; height: 120px; }
+        }
+
+        @media (max-width: 576px) {
+            .brand-logo { width: 36px; height: 36px; }
+            .brand-logo img { width: 26px; height: 26px; }
+            .user-avatar { width: 32px; height: 32px; font-size: 0.9rem; }
+        }
+
+        /* Hide original sidebar toggle */
+        #sidebarToggleTop { display: none; }
 
         /* Glassmorphism Components */
         .glass-card {
@@ -287,138 +613,6 @@
         .glass-button-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
-        }
-
-        /* Device Selector */
-        .device-selector-wrapper {
-            display: flex;
-            align-items: center;
-        }
-
-        .device-selector select {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            color: var(--text-primary);
-            padding: 0.6rem 1.2rem;
-            font-weight: 500;
-            min-width: 200px;
-            transition: all 0.3s ease;
-        }
-
-        .device-selector select:focus {
-            background: rgba(255, 255, 255, 0.08);
-            outline: none;
-            border-color: var(--primary-green);
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
-        }
-
-        .device-selector select option {
-            background: var(--dark-bg-2);
-            color: var(--text-primary);
-        }
-
-        /* User Menu */
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .user-profile-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50px;
-            padding: 0.4rem 1rem 0.4rem 0.4rem;
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .user-profile-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            text-decoration: none;
-            color: var(--text-primary);
-            border-color: var(--primary-green);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-        }
-
-        .user-name {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        /* Dropdown Menu */
-        .dropdown-menu-glass {
-            background: rgba(10, 14, 39, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            padding: 0.5rem;
-            margin-top: 0.5rem;
-        }
-
-        .dropdown-item-glass {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            color: var(--text-secondary);
-            transition: all 0.2s ease;
-            text-decoration: none;
-        }
-
-        .dropdown-item-glass:hover {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--primary-green-light);
-            text-decoration: none;
-        }
-
-        .dropdown-divider {
-            margin: 0.5rem 0;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Content Wrapper - Full Width */
-        #content-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
-
-        #content {
-            flex: 1;
-            padding: 2rem;
-        }
-
-        /* Container Fluid Adjustments */
-        .container-fluid {
-            max-width: 100%;
-            padding-left: 1rem;
-            padding-right: 1rem;
         }
 
         /* Widget Cards with Minimalist Glassmorphism */
@@ -928,92 +1122,10 @@
             background: rgba(16, 185, 129, 0.5);
         }
 
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-            .topbar-container {
-                flex-wrap: wrap;
-                padding: 0.75rem 1rem;
-            }
-
-            .nav-menu {
-                width: 100%;
-                justify-content: center;
-                margin-top: 0.75rem;
-                flex-wrap: wrap;
-            }
-
-            .nav-menu-link {
-                padding: 0.5rem 1rem;
-                font-size: 0.85rem;
-            }
-
-            .brand-text {
-                font-size: 1.25rem;
-            }
-
-            .user-name {
-                display: none;
-            }
-
-            .device-selector select {
-                min-width: 150px;
-                font-size: 0.85rem;
-            }
-
-            #content {
-                padding: 1rem;
-            }
-
-            .widget-wrapper {
-                padding: 5px;
-                height: calc(100% - 10px);
-            }
-
-            .value-large {
-                font-size: 2rem;
-            }
-
-            .gauge-modern-container {
-                width: 120px;
-                height: 120px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .brand-section {
-                gap: 0.5rem;
-            }
-
-            .brand-logo {
-                width: 40px;
-                height: 40px;
-            }
-
-            .brand-logo img {
-                width: 30px;
-                height: 30px;
-            }
-
-            .user-avatar {
-                width: 35px;
-                height: 35px;
-                font-size: 1rem;
-            }
-        }
-
-        /* Hide original sidebar toggle */
-        #sidebarToggleTop {
-            display: none;
-        }
 
         /* Gap utility for older Bootstrap 4 */
-        .gap-2 > * {
-            margin-right: 0.5rem ! important;
-        }
-        
-        .gap-2 > *:last-child {
-            margin-right: 0 !important;
-        }
+        .gap-2 > * { margin-right: 0.5rem !important; }
+        .gap-2 > *:last-child { margin-right: 0 !important; }
 
         /* Smooth transitions */
         .widget-value-display {
@@ -1097,144 +1209,165 @@
 </head>
 
 <body style="background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%); background-size: 400% 400%; animation: gradientShift 15s ease infinite; background-attachment: fixed;">
-    <div id="wrapper">
-        <!-- Dark Glass Morphism Topbar -->
+    <div id="wrapper" style="display:flex; flex-direction:column; min-height:100vh;">
+
+        <!-- ========== TOP HEADER ========== -->
         <nav class="topbar-glass">
-            <div class="topbar-container">
-                <!-- Brand Section -->
-                <div class="brand-section">
-                    <div class="brand-logo">
-                        <img src="{{ asset('assets/img/logo_tewe.png') }}" alt="{{ config('app.name') }} Logo">
-                    </div>
-                    <div class="brand-text">{{ config('app.name') }}</div>
+            <!-- Sidebar Toggle Button -->
+            <button class="sidebar-toggle-btn" id="sidebarToggleBtn" onclick="toggleSidebar()" title="Toggle Menu">
+                <i class="fas fa-bars" id="sidebarToggleIcon"></i>
+            </button>
+
+            <!-- Brand -->
+            <div class="brand-section">
+                <div class="brand-logo">
+                    <img src="{{ asset('assets/img/logo_tewe.png') }}" alt="{{ config('app.name') }} Logo">
                 </div>
+                <div class="brand-text">{{ config('app.name') }}</div>
+            </div>
 
-                <!-- Navigation Menu -->
-                <ul class="nav-menu">
-                    <li class="nav-menu-item">
-                        <a href="{{ route('dashboard') }}" class="nav-menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                            <i class="fas fa-tachometer-alt nav-menu-icon"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="nav-menu-item">
-                        <a href="{{ route('devices.index') }}" class="nav-menu-link {{ request()->routeIs('devices.*') && !request()->is('admin/*') ? 'active' : '' }}">
-                            <i class="fas fa-microchip nav-menu-icon"></i>
-                            <span>Devices</span>
-                        </a>
-                    </li>
-                    <li class="nav-menu-item">
-                        <a href="{{ route('schedules.index') }}" class="nav-menu-link {{ request()->routeIs('schedules.*') ? 'active' : '' }}">
-                            <i class="fas fa-calendar-alt nav-menu-icon"></i>
-                            <span>Schedules</span>
-                        </a>
-                    </li>
-                    @if(session('selected_device_id'))
-                    <li class="nav-menu-item">
-                        <a href="{{ route('widgets.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('widgets.index') ? 'active' : '' }}">
-                            <i class="fas fa-key nav-menu-icon"></i>
-                            <span>Widget Keys</span>
-                        </a>
-                    </li>
-                    <li class="nav-menu-item">
-                        <a href="{{ route('logs.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('logs.index') ? 'active' : '' }}">
-                            <i class="fas fa-list-alt nav-menu-icon"></i>
-                            <span>Data Logs</span>
-                        </a>
-                    </li>
-                    @endif
-                    @if(auth()->user()->isAdmin())
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.dashboard') }}" class="nav-menu-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-                                <i class="fas fa-shield-alt nav-menu-icon"></i>
-                                <span>Gov</span>
-                            </a>
-                        </li>
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.users.index') }}" class="nav-menu-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                                <i class="fas fa-users-cog nav-menu-icon"></i>
-                                <span>Users</span>
-                            </a>
-                        </li>
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.devices.index') }}" class="nav-menu-link {{ request()->routeIs('admin.devices.*') ? 'active' : '' }}">
-                                <i class="fas fa-server nav-menu-icon"></i>
-                                <span>Hardware</span>
-                            </a>
-                        </li>
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.plans.index') }}" class="nav-menu-link {{ request()->routeIs('admin.plans.*') ? 'active' : '' }}">
-                                <i class="fas fa-crown nav-menu-icon"></i>
-                                <span>Plans</span>
-                            </a>
-                        </li>
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.protocols.index') }}" class="nav-menu-link {{ request()->routeIs('admin.protocols.*') ? 'active' : '' }}">
-                                <i class="fas fa-network-wired nav-menu-icon"></i>
-                                <span>Protocols</span>
-                            </a>
-                        </li>
-                        <li class="nav-menu-item">
-                            <a href="{{ route('admin.settings.index') }}" class="nav-menu-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
-                                <i class="fas fa-cog nav-menu-icon"></i>
-                                <span>Settings</span>
-                            </a>
-                        </li>
-                    @endif
-                </ul>
+            <!-- Device Selector (center in topbar) -->
+            @if (request()->routeIs('dashboard') && isset($devices) && $devices->count() > 0)
+                <div class="device-selector-wrapper">
+                    <form action="{{ route('dashboard') }}" method="GET" class="device-selector">
+                        <select name="device_id" class="form-control" onchange="this.form.submit()">
+                            @foreach ($devices as $device)
+                                <option value="{{ $device->id }}"
+                                    {{ isset($selectedDevice) && $selectedDevice && $selectedDevice->id == $device->id ? 'selected' : '' }}>
+                                    {{ $device->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+            @endif
 
-                <!-- Device Selector -->
-                @if (request()->routeIs('dashboard') && isset($devices) && $devices->count() > 0)
-                    <div class="device-selector-wrapper">
-                        <form action="{{ route('dashboard') }}" method="GET" class="device-selector">
-                            <select name="device_id" class="form-control" onchange="this.form.submit()">
-                                @foreach ($devices as $device)
-                                    <option value="{{ $device->id }}"
-                                        {{ isset($selectedDevice) && $selectedDevice && $selectedDevice->id == $device->id ? 'selected' : '' }}>
-                                        {{ $device->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </form>
-                    </div>
-                @endif
-
-                <!-- User Menu -->
-                <div class="user-menu">
-                    <div class="dropdown">
-                        <a href="#" class="user-profile-btn" id="userDropdown" data-toggle="dropdown">
-                            <div class="user-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <span class="user-name">{{ Auth::user()->name }}</span>
-                            <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-right dropdown-menu-glass">
-                            <a class="dropdown-item-glass" href="{{ route('profile.edit') }}">
-                                <i class="fas fa-user"></i>
-                                <span>Profile</span>
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: none;">
-                                @csrf
-                            </form>
-                            <a class="dropdown-item-glass" href="#" onclick="event.preventDefault(); confirmLogout();">
-                                <i class="fas fa-sign-out-alt"></i>
-                                <span>Logout</span>
-                            </a>
+            <!-- User Menu -->
+            <div class="user-menu">
+                <div class="dropdown">
+                    <a href="#" class="user-profile-btn" id="userDropdown" data-toggle="dropdown">
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
                         </div>
+                        <span class="user-name">{{ Auth::user()->name }}</span>
+                        <i class="fas fa-chevron-down" style="font-size: 0.7rem;"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right dropdown-menu-glass">
+                        <a class="dropdown-item-glass" href="{{ route('profile.edit') }}">
+                            <i class="fas fa-user"></i>
+                            <span>Profile</span>
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <form id="logout-form" method="POST" action="{{ route('logout') }}" style="display: none;">
+                            @csrf
+                        </form>
+                        <a class="dropdown-item-glass" href="#" onclick="event.preventDefault(); confirmLogout();">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </a>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <!-- Content Wrapper -->
+        <!-- ========== SIDEBAR OVERLAY (mobile) ========== -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebarMobile()"></div>
+
+        <!-- ========== LEFT SIDEBAR ========== -->
+        <aside class="sidebar" id="mainSidebar">
+            <nav class="sidebar-nav">
+                <!-- Main Navigation -->
+                <p class="nav-section-label">Main</p>
+                <ul class="nav-menu">
+                    <li class="nav-menu-item">
+                        <a href="{{ route('dashboard') }}" class="nav-menu-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" data-tip="Dashboard">
+                            <i class="fas fa-tachometer-alt nav-menu-icon"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('devices.index') }}" class="nav-menu-link {{ request()->routeIs('devices.*') && !request()->is('admin/*') ? 'active' : '' }}" data-tip="Devices">
+                            <i class="fas fa-microchip nav-menu-icon"></i>
+                            <span>Devices</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('schedules.index') }}" class="nav-menu-link {{ request()->routeIs('schedules.*') ? 'active' : '' }}" data-tip="Schedules">
+                            <i class="fas fa-calendar-alt nav-menu-icon"></i>
+                            <span>Schedules</span>
+                        </a>
+                    </li>
+                </ul>
+
+                @if(session('selected_device_id'))
+                <div class="nav-divider"></div>
+                <p class="nav-section-label">Device</p>
+                <ul class="nav-menu">
+                    <li class="nav-menu-item">
+                        <a href="{{ route('widgets.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('widgets.index') ? 'active' : '' }}" data-tip="Widget Keys">
+                            <i class="fas fa-key nav-menu-icon"></i>
+                            <span>Widget Keys</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('logs.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('logs.index') ? 'active' : '' }}" data-tip="Data Logs">
+                            <i class="fas fa-list-alt nav-menu-icon"></i>
+                            <span>Data Logs</span>
+                        </a>
+                    </li>
+                </ul>
+                @endif
+
+                @if(auth()->user()->isAdmin())
+                <div class="nav-divider"></div>
+                <p class="nav-section-label">Admin</p>
+                <ul class="nav-menu">
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.dashboard') }}" class="nav-menu-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" data-tip="Gov">
+                            <i class="fas fa-shield-alt nav-menu-icon"></i>
+                            <span>Gov</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.users.index') }}" class="nav-menu-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" data-tip="Users">
+                            <i class="fas fa-users-cog nav-menu-icon"></i>
+                            <span>Users</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.devices.index') }}" class="nav-menu-link {{ request()->routeIs('admin.devices.*') ? 'active' : '' }}" data-tip="Hardware">
+                            <i class="fas fa-server nav-menu-icon"></i>
+                            <span>Hardware</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.plans.index') }}" class="nav-menu-link {{ request()->routeIs('admin.plans.*') ? 'active' : '' }}" data-tip="Plans">
+                            <i class="fas fa-crown nav-menu-icon"></i>
+                            <span>Plans</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.protocols.index') }}" class="nav-menu-link {{ request()->routeIs('admin.protocols.*') ? 'active' : '' }}" data-tip="Protocols">
+                            <i class="fas fa-network-wired nav-menu-icon"></i>
+                            <span>Protocols</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu-item">
+                        <a href="{{ route('admin.settings.index') }}" class="nav-menu-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" data-tip="Settings">
+                            <i class="fas fa-cog nav-menu-icon"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                </ul>
+                @endif
+            </nav>
+        </aside>
+
+        <!-- ========== CONTENT WRAPPER ========== -->
         <div id="content-wrapper">
             <div id="content">
-                <!-- Main Content -->
                 <div class="container-fluid">
 @yield('content')
-
                 </div>
             </div>
 
@@ -1264,6 +1397,64 @@
     <script src="https://cdn.jsdelivr.net/npm/gridstack@9.4.0/dist/gridstack-all.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        // =====================
+        // SIDEBAR LOGIC
+        // =====================
+        var isMobile = function() { return window.innerWidth <= 991; };
+        var sidebarCollapsed = false;
+
+        // Restore desktop collapse state from localStorage
+        if (!isMobile() && localStorage.getItem('sidebarCollapsed') === 'true') {
+            sidebarCollapsed = true;
+            document.getElementById('mainSidebar').classList.add('collapsed');
+            document.getElementById('content-wrapper').classList.add('sidebar-collapsed');
+        }
+
+        function toggleSidebar() {
+            var sidebar = document.getElementById('mainSidebar');
+            var wrapper = document.getElementById('content-wrapper');
+            var overlay = document.getElementById('sidebarOverlay');
+
+            if (isMobile()) {
+                // Mobile: toggle overlay popup
+                var isOpen = sidebar.classList.contains('mobile-open');
+                if (isOpen) {
+                    sidebar.classList.remove('mobile-open');
+                    overlay.classList.remove('active');
+                } else {
+                    sidebar.classList.add('mobile-open');
+                    overlay.classList.add('active');
+                }
+            } else {
+                // Desktop: toggle collapsed/expanded
+                sidebarCollapsed = !sidebarCollapsed;
+                sidebar.classList.toggle('collapsed', sidebarCollapsed);
+                wrapper.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+                localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+            }
+        }
+
+        function closeSidebarMobile() {
+            document.getElementById('mainSidebar').classList.remove('mobile-open');
+            document.getElementById('sidebarOverlay').classList.remove('active');
+        }
+
+        // On resize: fix state
+        window.addEventListener('resize', function() {
+            var sidebar = document.getElementById('mainSidebar');
+            var overlay = document.getElementById('sidebarOverlay');
+            if (!isMobile()) {
+                // Remove mobile open state when switching to desktop
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+                // Restore desktop collapse state
+                sidebar.classList.toggle('collapsed', sidebarCollapsed);
+                document.getElementById('content-wrapper').classList.toggle('sidebar-collapsed', sidebarCollapsed);
+            }
+        });
+    </script>
 
     <script>
         // Global AJAX setup

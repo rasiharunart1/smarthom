@@ -28,8 +28,8 @@ class AppServiceProvider extends ServiceProvider
         Schema::defaultStringLength(191);
 
         // ✅ Force HTTPS for all generated URLs
-        if (str_contains(request()->getHost(), 'mdpower.io') || $this->app->environment('production')) {
-            URL::forceScheme('https');
-        }
+        // if (str_contains(request()->getHost(), 'mdpower.io') || $this->app->environment('production')) {
+        //     URL::forceScheme('https');
+        // }
     }
 }
