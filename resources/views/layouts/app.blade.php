@@ -1423,10 +1423,10 @@
         // =====================
         var isMobile = function() { return window.innerWidth <= 991; };
 
-        // Desktop states: 'expanded' | 'collapsed' | 'hidden'
+        // Desktop states: 'expanded' | 'hidden'
         var desktopState = localStorage.getItem('sidebarState') || 'expanded';
 
-        function applyDesktopState(state, animate) {
+        function applyDesktopState(state) {
             var sidebar = document.getElementById('mainSidebar');
             var wrapper = document.getElementById('content-wrapper');
 
@@ -1434,10 +1434,7 @@
             sidebar.classList.remove('collapsed', 'hidden');
             wrapper.classList.remove('sidebar-collapsed', 'sidebar-hidden');
 
-            if (state === 'collapsed') {
-                sidebar.classList.add('collapsed');
-                wrapper.classList.add('sidebar-collapsed');
-            } else if (state === 'hidden') {
+            if (state === 'hidden') {
                 sidebar.classList.add('hidden');
                 wrapper.classList.add('sidebar-hidden');
             }
@@ -1466,9 +1463,8 @@
                     overlay.classList.add('active');
                 }
             } else {
-                // Desktop: siklus expanded → collapsed → hidden → expanded
-                var next = { 'expanded': 'collapsed', 'collapsed': 'hidden', 'hidden': 'expanded' };
-                desktopState = next[desktopState] || 'expanded';
+                // Desktop: toggle expanded ↔ hidden
+                desktopState = (desktopState === 'hidden') ? 'expanded' : 'hidden';
                 applyDesktopState(desktopState);
             }
         }
