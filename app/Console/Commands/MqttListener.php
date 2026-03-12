@@ -19,15 +19,27 @@ class MqttListener extends Command
 
     public function handle()
     {
-        $this->info('🎯 Starting MQTT Listener (Recording Enabled)');
+        $this->info("🚀 MQTT Listener Started");
 
-        try {
-            $this->connectToMqtt();
-            $this->subscribeToTopics();
-            $this->mqtt->loop(true);
-        } catch (\Exception $e) {
-            $this->error('❌ MQTT Error: ' . $e->getMessage());
-            Log::error('MQTT Listener error: ' . $e->getMessage());
+        while (true) {
+            try {
+
+                $this->connectToMqtt();
+                $this->subscribeToTopics();
+
+                $this->mqtt->loop(true);
+
+            } catch (\Throwable $e) {
+
+                $this->error("❌ MQTT Error: " . $e->getMessage());
+                Log::error("MQTT Listener error", [
+                    'message' => $e->getMessage()
+                ]);
+
+                sleep(5);
+
+                $this->info("🔄 Reconnecting MQTT...");
+            }
         }
     }
 
@@ -38,219 +50,218 @@ class MqttListener extends Command
         $username = env('MQTT_USERNAME');
         $password = env('MQTT_PASSWORD');
 
-        $settings = (new ConnectionSettings())
+        $settings = (new ConnectionSettings)
             ->setUsername($username)
             ->setPassword($password)
-            ->setUseTls((bool) env('MQTT_USE_TLS', false));
+            ->setUseTls((bool) env('MQTT_USE_TLS', false))
+            ->setKeepAliveInterval(60);
 
-        $this->mqtt = new MqttClient($host, $port, 'laravel-listener-' . time());
-        $this->mqtt->connect($settings);
+        $clientId = "laravel-listener-" . uniqid();
 
-        $this->info("✅ Connected to MQTT {$host}:{$port}");
+        $this->mqtt = new MqttClient($host, $port, $clientId);
+
+        $this->mqtt->connect($settings, true);
+
+        $this->info("✅ Connected MQTT {$host}:{$port}");
     }
 
     private function subscribeToTopics()
     {
-        // Topik sensors — data dari DEVICE ke server
-        $sensorsTopic = 'users/+/devices/+/sensors/+';
-        $this->mqtt->subscribe($sensorsTopic, function ($topic, $message) {
-            $this->handleMessage($topic, $message, 'sensors');
-        }, 1);
-        $this->info("📡 Subscribed to: {$sensorsTopic}");
 
-        // Topik control — dikirim DARI server ke device, TIDAK update last_seen_at
-        $controlTopic = 'users/+/devices/+/control/+';
-        $this->mqtt->subscribe($controlTopic, function ($topic, $message) {
-            $this->handleMessage($topic, $message, 'control');
-        }, 1);
-        $this->info("📡 Subscribed to: {$controlTopic}");
+        $topics = [
 
-        // Topik heartbeat — khusus untuk status device online/offline
-        $heartbeatTopic = 'users/+/devices/+/heartbeat';
-        $this->mqtt->subscribe($heartbeatTopic, function ($topic, $message) {
-            $this->handleHeartbeat($topic, $message);
-        }, 1);
-        $this->info("📡 Subscribed to: {$heartbeatTopic}");
+            'users/+/devices/+/sensors/+' => 'sensors',
+            'users/+/devices/+/control/+' => 'control',
+            'users/+/devices/+/heartbeat' => 'heartbeat'
 
-        $this->info("🔄 Listening & Recording...\n");
+        ];
+
+        foreach ($topics as $topic => $type) {
+
+            $this->mqtt->subscribe($topic, function ($topic, $message) use ($type) {
+
+                if ($type === 'heartbeat') {
+                    $this->handleHeartbeat($topic, $message);
+                } else {
+                    $this->handleMessage($topic, $message, $type);
+                }
+
+            }, 1);
+
+            $this->info("📡 Subscribed: {$topic}");
+        }
+
+        $this->info("👂 Listening MQTT...\n");
     }
 
-    /**
-     * Handle heartbeat messages — ONLY these update device online status.
-     * Topic: users/{userId}/devices/{deviceCode}/heartbeat
-     * Payload: any (e.g. "1", "ok", uptime seconds)
-     */
-    private function handleHeartbeat(string $topic, string $message): void
+    private function handleHeartbeat(string $topic, string $message)
     {
-        if (!preg_match('/^users\/(\d+)\/devices\/([^\/]+)\/heartbeat$/', $topic, $matches)) {
+
+        if (!preg_match('/^users\/(\d+)\/devices\/([^\/]+)\/heartbeat$/', $topic, $m)) {
             return;
         }
 
-        $userId     = (int) $matches[1];
-        $deviceCode = $matches[2];
+        $userId = $m[1];
+        $deviceCode = $m[2];
 
         $device = Device::where('device_code', $deviceCode)
             ->where('user_id', $userId)
             ->first();
 
         if (!$device) {
-            $this->warn("❌ Heartbeat: Device not found: {$deviceCode}");
+            $this->warn("❌ Heartbeat device not found: {$deviceCode}");
             return;
         }
 
         $device->markAsOnline();
-        $this->info("💓 Heartbeat [{$deviceCode}]: online (payload={$message})");
+
+        $this->info("💓 Heartbeat {$deviceCode}");
     }
 
-    private function handleMessage(string $topic, string $message, string $direction = 'sensors'): void
+    private function handleMessage(string $topic, string $message, string $direction)
     {
-        $timestamp = now()->format('Y-m-d H:i:s');
-        $this->line("[$timestamp] 📥 {$topic} = {$message}");
 
-        try {
-            // Regex topic: users/{userId}/devices/{deviceCode}/{type}/{widgetName}
-            if (!preg_match('/^users\/(\d+)\/devices\/([^\/]+)\/(sensors|control)\/(.+)$/', $topic, $matches)) {
-                $this->warn("⚠️ Invalid topic format");
-                return;
-            }
+        $timestamp = now()->format('H:i:s');
+        $this->line("[$timestamp] {$topic} -> {$message}");
 
-            $userId = (int)$matches[1];
-            $deviceCode = $matches[2];
-            $topicType = $matches[3]; // sensors or control
-            $widgetPart = trim($matches[4]);
+        $data = json_decode($message, true);
 
-            $device = Device::with('widget')
-                ->where('device_code', $deviceCode)
-                ->where('user_id', $userId)
-                ->first();
-
-            if (!$device) {
-                $this->warn("❌ Device not found: {$deviceCode}");
-                return;
-            }
-
-            if (!$device->widget) {
-                $this->warn("❌ No widget config for: {$device->name}");
-                return;
-            }
-
-            // ✅ Hanya sensor yg dikirim dari device yg update last_seen_at
-            // Control topic = perintah yg kita kirim KE device, bukan dari device
-            if ($direction === 'sensors') {
-                $device->markAsOnline();
-            }
-
-            $widgetsData = $device->widget->widgets_data ?? [];
-
-            $topicKeyOrNameOrIndex = trim($matches[4]); // widgetPart dari regex
-            $widgetKey = null;
-
-            // 1. Cek apakah topic part terakhir adalah KEY widget (ID)
-            if (isset($widgetsData[$topicKeyOrNameOrIndex])) {
-                $widgetKey = $topicKeyOrNameOrIndex;
-            } else {
-                // 2. Jika tidak, fallback cari berdasarkan type_index atau NAMA widget
-                foreach ($widgetsData as $key => $w) {
-                    // Cek explicit type_index (misal: toggle1)
-                    if (isset($w['type_index']) && strtolower(trim($w['type_index'])) === strtolower($topicKeyOrNameOrIndex)) {
-                        $widgetKey = $key;
-                        break;
-                    }
-                    
-                    // Fallback lagi ke NAMA (legacy)
-                    if (strtolower(trim($w['name'] ?? '')) === strtolower($topicKeyOrNameOrIndex)) {
-                        $widgetKey = $key;
-                        break;
-                    }
-                }
-            }
-
-            if (!$widgetKey) {
-                // Log failed attempt but don't crash
-                // Maybe create a log without widget key? No, that's useless.
-                $availableNames = implode(', ', array_map(fn($w) => ($w['name'] ?? '-') . " (" . ($w['type_index'] ?? 'no-idx') . ")", $widgetsData));
-                $this->warn("❌ Widget '{$topicKeyOrNameOrIndex}' not found");
-                return;
-            }
-
-            $widget = $widgetsData[$widgetKey];
-            $type = $widget['type'] ?? 'text';
-            $oldValue = $widget['value'] ?? null;
-
-            $newValue = $this->formatValueForType($type, $message, $widget);
-
-            if ($newValue === false) {
-                $this->warn("❌ Invalid value format for type: {$type}");
-                return;
-            }
-
-            // Update widget Value (Last Known State)
-            $device->widget->updateWidgetValue($widgetKey, $newValue);
-
-            // Update cache
-            Cache::put("device:{$deviceCode}:updates", [
-                'widgetKey' => $widgetKey,
-                'newValue' => $newValue,
-                'type' => $widget['type'] ?? 'text',
-                'timestamp' => now()->toISOString(),
-            ], 60);
-
-            // ==========================================
-            // INSERT INTO DEVICE LOGS (HISTORY)
-            // ==========================================
-            // If LSTM is active for this device, SKIP saving here.
-            // usage: $device->isLstmActive()
-            // The Python Service (server.py) will handle the storage to avoid double logging.
-            if ($device->isLstmActive()) {
-                 $this->info("⏩ Skipped Log (Handled by LSTM Service): {$widgetKey} -> {$newValue}");
-            } else {
-                DeviceLog::create([
-                    'device_id' => $device->id,
-                    'widget_key' => $widgetKey,
-                    'event_type' => $topicType === 'control' ? 'control' : 'telemetry',
-                    'new_value' => (string)$newValue,
-                    'source' => 'MQTT Listener',
-                ]);
-                $this->info("✅ Log Saved: {$widgetKey} -> {$newValue}");
-            }
-
-            $device->refresh();
-
-        } catch (\Exception $e) {
-            $this->error("❌ Exception: " . $e->getMessage());
+        if (json_last_error() === JSON_ERROR_NONE && isset($data['value'])) {
+            $message = $data['value'];
         }
+
+        if (!preg_match('/^users\/(\d+)\/devices\/([^\/]+)\/(sensors|control)\/(.+)$/', $topic, $m)) {
+            $this->warn("⚠️ Invalid topic format");
+            return;
+        }
+
+        $userId = $m[1];
+        $deviceCode = $m[2];
+        $widgetPart = trim($m[4]);
+
+        $device = Device::with('widget')
+            ->where('device_code', $deviceCode)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$device) {
+            $this->warn("❌ Device not found: {$deviceCode}");
+            return;
+        }
+
+        if (!$device->widget) {
+            $this->warn("❌ Widget config missing");
+            return;
+        }
+
+        if ($direction === 'sensors') {
+            $device->markAsOnline();
+        }
+
+        $widgetsData = $device->widget->widgets_data ?? [];
+
+        $widgetKey = $this->findWidgetKey($widgetsData, $widgetPart);
+
+        if (!$widgetKey) {
+            $this->warn("❌ Widget {$widgetPart} not found");
+            return;
+        }
+
+        $widget = $widgetsData[$widgetKey];
+        $type = $widget['type'] ?? 'text';
+
+        $oldValue = $widget['value'] ?? null;
+
+        $newValue = $this->formatValueForType($type, $message, $widget);
+
+        if ($newValue === false) {
+            $this->warn("❌ Invalid value type {$type}");
+            return;
+        }
+
+        if ((string)$oldValue === (string)$newValue) {
+            return;
+        }
+
+        $device->widget->updateWidgetValue($widgetKey, $newValue);
+
+        Cache::put("device:{$deviceCode}:updates", [
+            'widgetKey' => $widgetKey,
+            'value' => $newValue,
+            'timestamp' => now()->timestamp
+        ], 60);
+
+        if (!$device->isLstmActive()) {
+
+            DeviceLog::create([
+                'device_id' => $device->id,
+                'widget_key' => $widgetKey,
+                'event_type' => $direction === 'control' ? 'control' : 'telemetry',
+                'new_value' => (string)$newValue,
+                'source' => 'mqtt'
+            ]);
+
+        }
+
+        $this->info("✅ {$widgetKey} -> {$newValue}");
+    }
+
+    private function findWidgetKey($widgetsData, $topicKey)
+    {
+
+        if (isset($widgetsData[$topicKey])) {
+            return $topicKey;
+        }
+
+        foreach ($widgetsData as $key => $w) {
+
+            if (
+                isset($w['type_index']) &&
+                strtolower($w['type_index']) === strtolower($topicKey)
+            ) {
+                return $key;
+            }
+
+            if (
+                isset($w['name']) &&
+                strtolower($w['name']) === strtolower($topicKey)
+            ) {
+                return $key;
+            }
+
+        }
+
+        return null;
     }
 
     private function formatValueForType($type, $value, $widget)
     {
+
         switch ($type) {
+
             case 'toggle':
-                $lower = strtolower(trim($value));
-                if (in_array($lower, ['1', 'true', 'on', 'yes', 'high'])) return '1';
-                if (in_array($lower, ['0', 'false', 'off', 'no', 'low'])) return '0';
+
+                $v = strtolower(trim($value));
+
+                if (in_array($v, ['1','true','on','yes'])) return '1';
+                if (in_array($v, ['0','false','off','no'])) return '0';
+
                 return false;
 
             case 'slider':
             case 'gauge':
-            case 'chart': // Chart often is numeric
+            case 'chart':
+
                 if (!is_numeric($value)) return false;
 
-                $numValue = (float)$value;
-                $min = $widget['min'] ?? null;
-                $max = $widget['max'] ?? null;
-
-                // Optional: Clamp or Reject? For logs, maybe just log it even if OOB?
-                // The user logic rejected it. I'll stick to their logic.
-                if ($min !== null && $numValue < $min) $this->warn("Value $numValue < min $min");
-                if ($max !== null && $numValue > $max) $this->warn("Value $numValue > max $max");
-                // Allowing OOB for logging is often better, but let's trust existing logic for now.
-                
                 $precision = $widget['config']['precision'] ?? 0;
-                return number_format($numValue, $precision, '.', '');
+
+                return number_format((float)$value, $precision, '.', '');
 
             case 'text':
             default:
-                return substr((string)$value, 0, 255);
+
+                return substr((string)$value,0,255);
         }
     }
 }
