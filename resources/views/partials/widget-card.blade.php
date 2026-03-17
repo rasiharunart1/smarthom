@@ -167,20 +167,20 @@
         @endswitch
     </div>
 
-    <div class="card-footer-modern">
-        <div class="footer-content">
-            <div class="d-flex align-items-center gap-2">
-                <span class="widget-type-badge">{{ $widget->type }}</span>
-                @if(config('app.debug'))
-                    <span class="text-xs opacity-50">{{ Str::limit($widget->key, 8) }}</span>
-                @endif
-            </div>
-            <div class="update-time">
-                <i class="far fa-clock"></i>
-                <span class="time-text">Just now</span>
-            </div>
-        </div>
-    </div>
+    <!--<div class="card-footer-modern">-->
+    <!--    <div class="footer-content">-->
+    <!--        <div class="d-flex align-items-center gap-2">-->
+    <!--            <span class="widget-type-badge">{{ $widget->type }}</span>-->
+    <!--            @if(config('app.debug'))-->
+    <!--                <span class="text-xs opacity-50">{{ Str::limit($widget->key, 8) }}</span>-->
+    <!--            @endif-->
+    <!--        </div>-->
+    <!--        <div class="update-time">-->
+    <!--            <i class="far fa-clock"></i>-->
+    <!--            <span class="time-text">Just now</span>-->
+    <!--        </div>-->
+    <!--    </div>-->
+    <!--</div>-->
 </div>
 
 <style>
