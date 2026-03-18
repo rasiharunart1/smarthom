@@ -1035,7 +1035,7 @@
                 const key = $(this).attr('gs-id');
                 if (key && key.toLowerCase() === topicSlug.toLowerCase()) {
                     widgetKey = key;
-                    type = $(this).find('.widget-type-badge').text().trim().toLowerCase();
+                    type = $(this).find('.widget-card-modern').attr('data-widget-type') || 'toggle'; 
                     return false;
                 }
             });
@@ -1050,13 +1050,26 @@
                     
                     if (nameSlug === topicSlug.toLowerCase() || name.includes(cleanTopicSlug) || cleanTopicSlug.includes(name)) {
                         widgetKey = $w.attr('gs-id');
-                        type = $w.find('.widget-type-badge').text().trim().toLowerCase();
+                        type = $w.find('.widget-card-modern').attr('data-widget-type') || 'toggle';
                         return false;
                     }
                 });
             }
             if (widgetKey) {
                 updateWidgetUI(widgetKey, message, type);
+                
+                // ✅ UPDATE DATABASE SILENTLY 
+                // Ensures that ESP sensor updates are saved to Laravel DB.
+                // silent=1 prevents the server from re-publishing to MQTT.
+                clearTimeout(dbSyncTimers[widgetKey]);
+                dbSyncTimers[widgetKey] = setTimeout(() => {
+                    $.post(`/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}/value`, {
+                        value: message,
+                        silent: 1,
+                        _token: '{{ csrf_token() }}'
+                    });
+                }, 500); // 500ms debounce
+
                 // Also update any charts relying on this data
                 if (window.updateDependentCharts) {
                     window.updateDependentCharts(widgetKey, message);

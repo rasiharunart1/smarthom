@@ -25,10 +25,15 @@ class MqttWebSocketClient {
 
         const mqttConnectConfig = { ...defaultOptions, ...options };
 
-        // HiveMQ Cloud WebSocket URL format
-        const url = `${mqttConnectConfig.protocol}://${mqttConnectConfig.host}:${mqttConnectConfig.port}/mqtt`;
+        // Custom WebSocket URL (Supports Standard Ports 80/443 without explicit port)
+        let url;
+        if (mqttConnectConfig.port && mqttConnectConfig.port !== 80 && mqttConnectConfig.port !== 443) {
+            url = `${mqttConnectConfig.protocol}://${mqttConnectConfig.host}:${mqttConnectConfig.port}/mqtt`;
+        } else {
+            url = `${mqttConnectConfig.protocol}://${mqttConnectConfig.host}/mqtt`;
+        }
 
-        console.log('🔌 Connecting to HiveMQ WebSocket:', url);
+        console.log('🔌 Connecting to WebSocket:', url);
 
         try {
             this.client = mqtt.connect(url, {

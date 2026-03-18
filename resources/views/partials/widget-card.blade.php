@@ -1,5 +1,6 @@
 <div class="card h-100 widget-card-modern border-0" 
      data-widget-key="{{ $widget->key }}"
+     data-widget-type="{{ $widget->type }}"
      data-widget-width="{{ $widget->width ??  4 }}"
      data-widget-height="{{ $widget->height ??  2 }}">
     

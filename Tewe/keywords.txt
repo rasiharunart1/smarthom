@@ -1,0 +1,48 @@
+# ============================================================
+# Tewe Library — Arduino IDE Syntax Highlighting
+# ============================================================
+
+# Datatypes (KEYWORD1)
+Tewe	KEYWORD1
+TeweWidget	KEYWORD1
+TeweWidgetType	KEYWORD1
+TeweToggleCallback	KEYWORD1
+TeweSliderCallback	KEYWORD1
+TeweTextCallback	KEYWORD1
+
+# Methods (KEYWORD2)
+begin	KEYWORD2
+run	KEYWORD2
+mapPin	KEYWORD2
+setRelayActiveLow	KEYWORD2
+setHeartbeatInterval	KEYWORD2
+onToggle	KEYWORD2
+onSlider	KEYWORD2
+onText	KEYWORD2
+setState	KEYWORD2
+toggle	KEYWORD2
+setSlider	KEYWORD2
+getSlider	KEYWORD2
+publishGauge	KEYWORD2
+setText	KEYWORD2
+getText	KEYWORD2
+publish	KEYWORD2
+publishAll	KEYWORD2
+publishRaw	KEYWORD2
+isWifiConnected	KEYWORD2
+isMqttConnected	KEYWORD2
+getWidgetCount	KEYWORD2
+getToggleCount	KEYWORD2
+getState	KEYWORD2
+getWidgetIndex	KEYWORD2
+getWidgetType	KEYWORD2
+
+# Constants (LITERAL1)
+TEWE_MAX_WIDGETS	LITERAL1
+TEWE_MAX_PIN_MAP	LITERAL1
+TEWE_MQTT_BUFFER	LITERAL1
+TEWE_TOGGLE	LITERAL1
+TEWE_SLIDER	LITERAL1
+TEWE_GAUGE	LITERAL1
+TEWE_TEXT	LITERAL1
+TEWE_UNKNOWN	LITERAL1

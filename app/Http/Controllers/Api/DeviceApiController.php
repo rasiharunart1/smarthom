@@ -45,13 +45,13 @@ class DeviceApiController extends Controller
         //     true
         // ));
 
-        // Get MQTT credentials from environment
+        // Get MQTT credentials from config (NOT env() — env() returns null when config is cached!)
         $mqttConfig = [
-            'host' => env('MQTT_HOST'),
-            'port' => (int) env('MQTT_PORT', 8883),
-            'username' => env('MQTT_USERNAME'),
-            'password' => env('MQTT_PASSWORD'),
-            'use_tls' => env('MQTT_USE_TLS', true),
+            'host' => config('mqtt.host'),
+            'port' => (int) config('mqtt.port', 8883),
+            'username' => config('mqtt.username'),
+            'password' => config('mqtt.password'),
+            'use_tls' => config('mqtt.use_tls', true),
         ];
 
         // Log authentication

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>Tewe Smart Home</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ── STATUS BAR ──────────────────────────────────────────── -->
+<header id="statusBar">
+  <div class="status-left">
+    <span class="logo">⚡ Tewe</span>
+    <span id="deviceCode" class="badge">---</span>
+  </div>
+  <div class="status-right">
+    <span id="syncBadge" class="badge badge-offline">OFFLINE</span>
+    <span id="queueBadge" class="badge badge-queue" style="display:none">Q:0</span>
+    <span id="wifiBadge" class="badge badge-wifi">📶</span>
+  </div>
+</header>
+
+<!-- ── WIDGET GRID ─────────────────────────────────────────── -->
+<main id="widgetGrid" class="widget-grid">
+  <div class="loading">Connecting...</div>
+</main>
+
+<!-- ── FOOTER ──────────────────────────────────────────────── -->
+<footer id="footer">
+  <span id="uptimeText">Uptime: --</span>
+  <span id="heapText">Heap: --</span>
+  <span id="ipText">IP: --</span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

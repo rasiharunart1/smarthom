@@ -20,11 +20,12 @@ class MqttService
 
     public function __construct()
     {
-        $this->host = env('MQTT_HOST');
-        $this->port = (int) env('MQTT_PORT', 8883);
-        $this->username = env('MQTT_USERNAME');
-        $this->password = env('MQTT_PASSWORD');
-        $this->useTls = (bool) env('MQTT_USE_TLS', true);
+        // Gunakan config() bukan env() — env() return null saat config:cache aktif!
+        $this->host = config('mqtt.host');
+        $this->port = (int) config('mqtt.port', 8883);
+        $this->username = config('mqtt.username');
+        $this->password = config('mqtt.password');
+        $this->useTls = (bool) config('mqtt.use_tls', true);
     }
 
     /**
