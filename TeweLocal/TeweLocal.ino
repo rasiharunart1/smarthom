@@ -19,27 +19,68 @@
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 #include <WiFiClientSecureBearSSL.h>
+#include <EEPROM.h>
 
-// ================= CONFIG =================
-const char *WIFI_SSID = "Harun";
-const char *WIFI_PASS = "harun3211";
+// ================= CONFIG & EEPROM =================
+struct EepromConfig {
+  uint32_t magic;
+  char ssid[64];
+  char pass[64];
+  char api[128];
+  char dev[32];
+  char session[33];
+  char auth_user[32];
+  char auth_pass[64];
+};
+EepromConfig cfg;
+
 const char *AP_SSID = "Tewe-Panel";
 const char *AP_PASS = "12345678";
-const char *API_BASE = "https://nh.mdpower.io/api/devices";
-const char *DEVICE_CODE = "DEV_JQDK0QYUUJ";
 
-// ================= TOGGLE =================
-struct Toggle {
+void loadConfig() {
+  EEPROM.begin(512);
+  EEPROM.get(0, cfg);
+  if (cfg.magic != 0x54455747) { // "TEW7" formats to store local config
+    Serial.println(F("⚠ No valid EEPROM config found. Formatting with defaults."));
+    cfg.magic = 0x54455747;
+    cfg.ssid[0] = '\0';
+    cfg.pass[0] = '\0';
+    strlcpy(cfg.api, "https://nh.mdpower.io/api/devices", sizeof(cfg.api));
+    strlcpy(cfg.dev, "DEV_JQDK0QYUUJ", sizeof(cfg.dev));
+    cfg.session[0] = '\0';
+    strlcpy(cfg.auth_user, "admin", sizeof(cfg.auth_user));
+    strlcpy(cfg.auth_pass, "admin", sizeof(cfg.auth_pass));
+    EEPROM.put(0, cfg);
+    EEPROM.commit();
+  } else {
+    Serial.println(F("✅ Config loaded from EEPROM"));
+  }
+}
+
+void saveConfig() {
+  EEPROM.put(0, cfg);
+  EEPROM.commit();
+}
+
+// ================= WIDGET =================
+struct LocalWidget {
   String key;
   String name;
-  bool state;
+  String type;
+  String value;
+  String unit;
   int pin;
-  String topicCtrl;
-  String topicState;
 };
 
-Toggle toggles[10];
-int toggleCount = 0;
+#define MAX_WIDGETS 12
+LocalWidget localWidgets[MAX_WIDGETS];
+int widgetCount = 0;
+
+// Forward Declarations
+void applyPin(LocalWidget &w);
+void publishWidgetState(int i);
+void broadcastWS(const char *key, const char *value);
+void queueAPISync(const String &key, const String &value);
 
 // ================= PIN MAP =================
 struct PinMap {
@@ -104,7 +145,7 @@ void flushAPISyncQueue() {
   for (int i = 0; i < syncQueueCount; i++) {
     HTTPClient http;
     httpsClient.setInsecure();
-    String url = String(API_BASE) + "/" + DEVICE_CODE + "/widgets/" + syncQueue[i].key;
+    String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets/" + syncQueue[i].key;
     http.begin(httpsClient, url);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     http.setTimeout(5000);
@@ -132,9 +173,9 @@ void connectWiFi() {
   WiFi.softAP(AP_SSID, AP_PASS);
   Serial.println("📶 AP: " + String(AP_SSID) + " → http://192.168.4.1");
 
-  if (strlen(WIFI_SSID) > 0) {
-    Serial.printf("🔗 WiFi: %s", WIFI_SSID);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+  if (strlen(cfg.ssid) > 0) {
+    Serial.printf("🔗 WiFi: %s", cfg.ssid);
+    WiFi.begin(cfg.ssid, cfg.pass);
     int t = 0;
     while (WiFi.status() != WL_CONNECTED && t < 30) {
       delay(500);
@@ -159,12 +200,12 @@ bool authenticate() {
   HTTPClient http;
   httpsClient.setInsecure();
 
-  String url = String(API_BASE) + "/auth";
+  String url = String(cfg.api) + "/auth";
   http.begin(httpsClient, url);
   http.addHeader("Content-Type", "application/json");
 
   JsonDocument req;
-  req["device_code"] = DEVICE_CODE;
+  req["device_code"] = cfg.dev;
   String body;
   serializeJson(req, body);
 
@@ -176,8 +217,13 @@ bool authenticate() {
   }
 
   String resp = http.getString();
+
   JsonDocument doc;
-  if (deserializeJson(doc, resp)) {
+  // Zero-copy parsing: casting to mutable char* saves RAM
+  DeserializationError error = deserializeJson(doc, const_cast<char*>(resp.c_str()));
+  if (error) {
+    Serial.print("  Auth deserialize gagal: ");
+    Serial.println(error.c_str());
     http.end();
     return false;
   }
@@ -190,6 +236,7 @@ bool authenticate() {
 
   Serial.printf("  userId=%d mqtt=%s:%d\n", userId, mqttHost.c_str(), mqttPort);
   http.end();
+  httpsClient.stop(); // FORCE CLOSE to prevent socket reuse bugs
 
   // Validate MQTT credentials
   mqttCredsValid = isValidStr(mqttHost) && isValidStr(mqttUser) && isValidStr(mqttPass);
@@ -212,60 +259,72 @@ bool fetchWidgets() {
   HTTPClient http;
   httpsClient.setInsecure();
 
-  String url = String(API_BASE) + "/" + DEVICE_CODE + "/widgets";
+  String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets?lite=1";
+  Serial.println("  URL: " + url);
   http.begin(httpsClient, url);
 
   int code = http.GET();
   if (code != 200) {
     Serial.println("  Fetch gagal: HTTP " + String(code));
     http.end();
+    httpsClient.stop();
     return false;
   }
 
-  String payload = http.getString();
-  Serial.println("  Response: " + String(payload.length()) + " bytes");
+  JsonDocument filter;
+  filter["widgets"]["*"]["type"] = true;
+  filter["widgets"]["*"]["name"] = true;
+  filter["widgets"]["*"]["value"] = true;
+  filter["widgets"]["*"]["config"]["unit"] = true;
 
   JsonDocument doc;
-  if (deserializeJson(doc, payload)) {
+  // STREAM PARSING: Read directly from socket. Saves massive RAM by bypassing http.getString()
+  DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+  if (error) {
+    Serial.print("  Fetch deserialize gagal: ");
+    Serial.println(error.c_str());
     http.end();
+    httpsClient.stop();
     return false;
   }
 
-  String base = "users/" + String(userId) + "/devices/" + DEVICE_CODE;
+  String base = "users/" + String(userId) + "/devices/" + String(cfg.dev);
   JsonObject widgets = doc["widgets"].as<JsonObject>();
+  
+  http.end();
+  httpsClient.stop();
 
-  toggleCount = 0;
+  widgetCount = 0;
   for (JsonPair kv : widgets) {
     String key = kv.key().c_str();
     String type = kv.value()["type"].as<String>();
 
-    if (type != "toggle")
-      continue;
-    if (toggleCount >= 10)
+    if (widgetCount >= MAX_WIDGETS)
       break;
 
-    Toggle &t = toggles[toggleCount];
-    t.key = key;
-    t.name = kv.value()["name"].as<String>();
-    t.state = (kv.value()["value"].as<String>() == "1");
-    t.topicCtrl = base + "/control/" + key;
-    t.topicState = base + "/sensors/" + key;
-    t.pin = -1;
+    LocalWidget &w = localWidgets[widgetCount];
+    w.key = key;
+    w.type = type;
+    w.name = kv.value()["name"].as<String>();
+    w.value = kv.value()["value"].as<String>();
+    w.unit = kv.value()["config"]["unit"] | "";
+    w.pin = -1;
 
-    for (int p = 0; p < PIN_MAP_SIZE; p++) {
-      if (key == pinMap[p].key) {
-        t.pin = pinMap[p].pin;
-        pinMode(t.pin, OUTPUT);
-        break;
+    if (w.type == "toggle") {
+      for (int p = 0; p < PIN_MAP_SIZE; p++) {
+        if (key == pinMap[p].key) {
+          w.pin = pinMap[p].pin;
+          pinMode(w.pin, OUTPUT);
+          break;
+        }
       }
     }
 
-    Serial.printf("  [%d] %s pin=%d val=%d\n", toggleCount, key.c_str(), t.pin,
-                  t.state);
-    toggleCount++;
+    Serial.printf("  [%d] %s (type=%s) pin=%d val=%s\n", widgetCount, key.c_str(), w.type.c_str(), w.pin, w.value.c_str());
+    widgetCount++;
   }
 
-  Serial.println("  Loaded " + String(toggleCount) + " toggles");
+  Serial.println("  Loaded " + String(widgetCount) + " widgets");
   http.end();
   return true;
 }
@@ -273,17 +332,17 @@ bool fetchWidgets() {
 // ============================================================
 // PIN CONTROL
 // ============================================================
-void applyPin(Toggle &t) {
-  if (t.pin < 0)
+void applyPin(LocalWidget &w) {
+  if (w.pin < 0 || w.type != "toggle")
     return;
-  digitalWrite(t.pin, t.state ? LOW : HIGH); // Active LOW relay
+  digitalWrite(w.pin, (w.value == "1" || w.value == "true") ? LOW : HIGH); // Active LOW relay
 }
 
-void publishToggle(int i) {
+void publishWidgetState(int i) {
   if (!mqtt.connected())
     return;
-  mqtt.publish(toggles[i].topicState.c_str(), toggles[i].state ? "1" : "0",
-               true);
+  String topic = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/sensors/" + localWidgets[i].key;
+  mqtt.publish(topic.c_str(), localWidgets[i].value.c_str(), true);
 }
 
 // ============================================================
@@ -302,7 +361,7 @@ void broadcastWS(const char *key, const char *value) {
 String buildInitJson() {
   JsonDocument doc;
   doc["event"] = "init";
-  doc["device"] = DEVICE_CODE;
+  doc["device"] = cfg.dev;
   doc["uptime"] = millis() / 1000;
   doc["heap"] = ESP.getFreeHeap();
   doc["wifi"] = WiFi.status() == WL_CONNECTED;
@@ -312,14 +371,21 @@ String buildInitJson() {
   doc["ap_ip"] = WiFi.softAPIP().toString();
   doc["rssi"] = WiFi.RSSI();
 
+  JsonObject conf = doc["config"].to<JsonObject>();
+  conf["ssid"] = cfg.ssid;
+  conf["api"] = cfg.api;
+  conf["dev"] = cfg.dev;
+  conf["auth_user"] = cfg.auth_user;
+
   JsonArray arr = doc["widgets"].to<JsonArray>();
-  for (int i = 0; i < toggleCount; i++) {
+  for (int i = 0; i < widgetCount; i++) {
     JsonObject w = arr.add<JsonObject>();
-    w["key"] = toggles[i].key;
-    w["name"] = toggles[i].name;
-    w["type"] = "toggle";
-    w["value"] = toggles[i].state ? "1" : "0";
-    w["pin"] = toggles[i].pin;
+    w["key"] = localWidgets[i].key;
+    w["name"] = localWidgets[i].name;
+    w["type"] = localWidgets[i].type;
+    w["value"] = localWidgets[i].value;
+    w["unit"] = localWidgets[i].unit;
+    w["pin"] = localWidgets[i].pin;
   }
 
   String json;
@@ -335,13 +401,18 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
   for (unsigned int i = 0; i < len; i++)
     msg += (char)payload[i];
 
-  for (int i = 0; i < toggleCount; i++) {
-    if (String(topic) == toggles[i].topicCtrl) {
-      toggles[i].state = (msg == "1");
-      applyPin(toggles[i]);
-      publishToggle(i);
-      broadcastWS(toggles[i].key.c_str(), toggles[i].state ? "1" : "0");
-      Serial.println("MQTT " + toggles[i].key + " → " + msg);
+  String topicStr = String(topic);
+  String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+
+  for (int i = 0; i < widgetCount; i++) {
+    if (localWidgets[i].type == "toggle") {
+      if (topicStr == baseCtrl + localWidgets[i].key) {
+        localWidgets[i].value = msg;
+        applyPin(localWidgets[i]);
+        publishWidgetState(i);
+        broadcastWS(localWidgets[i].key.c_str(), msg.c_str());
+        Serial.println("MQTT " + localWidgets[i].key + " → " + msg);
+      }
     }
   }
 }
@@ -370,7 +441,7 @@ void connectMQTT() {
   Serial.printf("MQTT → %s:%d user=%s heap=%d\n", mqttHost.c_str(), mqttPort,
                 mqttUser.c_str(), ESP.getFreeHeap());
 
-  String cid = "TeweLocal-" + String(DEVICE_CODE) + "-" + String(millis() % 10000);
+  String cid = "TeweLocal-" + String(cfg.dev) + "-" + String(millis() % 10000);
   
   // Ensure connection is fully closed before retrying
   if (mqtt.connected()) mqtt.disconnect();
@@ -379,9 +450,12 @@ void connectMQTT() {
   
   if (mqtt.connect(cid.c_str(), mqttUser.c_str(), mqttPass.c_str())) {
     Serial.println(F("📡 MQTT connected!"));
-    for (int i = 0; i < toggleCount; i++) {
-      mqtt.subscribe(toggles[i].topicCtrl.c_str(), 1);
-      publishToggle(i);
+    String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+    for (int i = 0; i < widgetCount; i++) {
+      if (localWidgets[i].type == "toggle") {
+        mqtt.subscribe((baseCtrl + localWidgets[i].key).c_str(), 1);
+      }
+      publishWidgetState(i);
       delay(20);
     }
   } else {
@@ -408,32 +482,31 @@ void onWsEvent(AsyncWebSocket *s, AsyncWebSocketClient *client,
       String key = d["key"].as<String>();
 
       if (action == "toggle") {
-        for (int i = 0; i < toggleCount; i++) {
-          if (toggles[i].key == key) {
-            toggles[i].state = !toggles[i].state;
-            applyPin(toggles[i]);
-            broadcastWS(key.c_str(), toggles[i].state ? "1" : "0");
+        for (int i = 0; i < widgetCount; i++) {
+          if (localWidgets[i].key == key && localWidgets[i].type == "toggle") {
+            localWidgets[i].value = (localWidgets[i].value == "1") ? "0" : "1";
+            applyPin(localWidgets[i]);
+            broadcastWS(key.c_str(), localWidgets[i].value.c_str());
             if (mqtt.connected()) {
-              publishToggle(i);
+              publishWidgetState(i);
             } else if (hasInternet) {
-              // Fallback: kirim ke Laravel via HTTP API
-              queueAPISync(key, toggles[i].state ? "1" : "0");
+              queueAPISync(key, localWidgets[i].value);
             }
-            Serial.println("WS " + key + " → " + String(toggles[i].state));
+            Serial.println("WS " + key + " → " + localWidgets[i].value);
             break;
           }
         }
       } else if (action == "set") {
         String val = d["value"].as<String>();
-        for (int i = 0; i < toggleCount; i++) {
-          if (toggles[i].key == key) {
-            toggles[i].state = (val == "1");
-            applyPin(toggles[i]);
-            broadcastWS(key.c_str(), toggles[i].state ? "1" : "0");
+        for (int i = 0; i < widgetCount; i++) {
+          if (localWidgets[i].key == key) {
+            localWidgets[i].value = val;
+            applyPin(localWidgets[i]);
+            broadcastWS(key.c_str(), localWidgets[i].value.c_str());
             if (mqtt.connected()) {
-              publishToggle(i);
+              publishWidgetState(i);
             } else if (hasInternet) {
-              queueAPISync(key, toggles[i].state ? "1" : "0");
+              queueAPISync(key, localWidgets[i].value);
             }
             break;
           }
@@ -446,66 +519,24 @@ void onWsEvent(AsyncWebSocket *s, AsyncWebSocketClient *client,
 // ============================================================
 // EMBEDDED HTML DASHBOARD
 // ============================================================
-const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
-<!DOCTYPE html><html><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0f172a">
-<title>Tewe Smart Home</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
-header{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(15,23,42,.92);backdrop-filter:blur(12px);border-bottom:1px solid #334155}
-.logo{font-size:1.2em;font-weight:800;background:linear-gradient(135deg,#3b82f6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.badge{font-size:.7em;padding:3px 8px;border-radius:20px;font-weight:600;text-transform:uppercase}
-.b-off{background:#ef444430;color:#ef4444}.b-on{background:#22c55e30;color:#22c55e}
-.grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;padding:16px;max-width:800px;margin:0 auto;width:100%}
-.card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:all .3s;position:relative;overflow:hidden}
-.card::before{content:'';position:absolute;inset:0;border-radius:14px;opacity:0;transition:opacity .4s}
-.card:active{transform:scale(.96)}
-.card.on{border-color:#3b82f6}
-.card.on::before{opacity:1;background:radial-gradient(ellipse at 50% 0%,rgba(59,130,246,.35),transparent 70%)}
-.icon{font-size:2em;width:56px;height:56px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.05);transition:all .3s}
-.card.on .icon{background:#3b82f6;box-shadow:0 0 20px rgba(59,130,246,.35)}
-.name{font-size:.85em;color:#94a3b8;text-align:center;font-weight:500}
-.sw{width:52px;height:28px;border-radius:14px;background:#475569;position:relative;transition:background .3s;flex-shrink:0}
-.sw.on{background:#3b82f6;box-shadow:0 0 12px rgba(59,130,246,.35)}
-.sw::after{content:'';width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.sw.on::after{transform:translateX(24px)}
-footer{display:flex;justify-content:space-between;padding:10px 16px;font-size:.7em;color:#64748b;border-top:1px solid #1e293b}
-.empty{grid-column:1/-1;text-align:center;padding:60px 0;color:#475569;font-size:1.1em}
-@media(max-width:400px){.grid{grid-template-columns:repeat(2,1fr);gap:10px;padding:10px}.card{padding:16px}.icon{width:44px;height:44px;font-size:1.6em}}
-</style></head><body>
-<header>
-<span class="logo">⚡ Tewe</span>
-<div><span class="badge b-off" id="sync">OFFLINE</span></div>
-</header>
-<div class="grid" id="g"><div class="empty">Connecting...</div></div>
-<footer><span id="ft1">---</span><span id="ft2">---</span><span id="ft3">---</span></footer>
-<script>
-var ws,W=[];
-function cn(){var p=location.protocol==='https:'?'wss:':'ws:';ws=new WebSocket(p+'//'+location.host+'/ws');
-ws.onopen=function(){};
-ws.onmessage=function(e){var d=JSON.parse(e.data);
-if(d.event==='init'){W=d.widgets||[];
-document.getElementById('sync').className='badge '+(d.internet?'b-on':'b-off');
-document.getElementById('sync').textContent=d.mqtt?'SYNCED':d.internet?'ONLINE':'LOCAL';
-document.getElementById('ft1').textContent='IP: '+(d.ip||'AP only');
-document.getElementById('ft2').textContent='Heap: '+(d.heap/1024).toFixed(1)+'KB';
-var u=d.uptime||0,m=Math.floor(u/60);document.getElementById('ft3').textContent='Up: '+m+'m';rn()}
-else if(d.event==='state'){up(d.key,d.value)}};
-ws.onclose=function(){setTimeout(cn,3000)};ws.onerror=function(){ws.close()}}
-function rn(){var g=document.getElementById('g');g.innerHTML='';
-if(!W.length){g.innerHTML='<div class="empty">No widgets</div>';return}
-W.forEach(function(w){var c=document.createElement('div');c.className='card'+(w.value==='1'?' on':'');c.id='c-'+w.key;
-c.innerHTML='<div class="icon">💡</div><div class="name">'+w.name+'</div><div class="sw'+(w.value==='1'?' on':'')+'" id="s-'+w.key+'"></div>';
-c.onclick=function(){ws.send(JSON.stringify({action:'toggle',key:w.key}))};g.appendChild(c)})}
-function up(k,v){var c=document.getElementById('c-'+k);if(!c)return;c.className='card'+(v==='1'?' on':'');
-var s=document.getElementById('s-'+k);if(s)s.className='sw'+(v==='1'?' on':'');
-for(var i=0;i<W.length;i++)if(W[i].key===k)W[i].value=v}
-cn();
-</script></body></html>
-)rawliteral";
+#include "index_html.h"
+#include "login_html.h"
+
+bool isAuthenticated(AsyncWebServerRequest *request) {
+  if (strlen(cfg.session) == 0) return false;
+  if (request->hasHeader("Cookie")) {
+    String cookie = request->header("Cookie");
+    int idx = cookie.indexOf("tewe_sess=");
+    if (idx != -1) {
+      String sess = cookie.substring(idx + 10);
+      int endIdx = sess.indexOf(';');
+      if (endIdx != -1) sess = sess.substring(0, endIdx);
+      sess.trim();
+      return (sess == String(cfg.session));
+    }
+  }
+  return false;
+}
 
 // ============================================================
 // WEB SERVER SETUP
@@ -519,39 +550,105 @@ void setupWebServer() {
 
   // REST API
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
+    if (!isAuthenticated(r)) { r->send(401); return; }
     r->send(200, "application/json", buildInitJson());
   });
 
   server.on("/api/toggle", HTTP_POST, [](AsyncWebServerRequest *r) {
+    if (!isAuthenticated(r)) { r->send(401); return; }
     if (!r->hasParam("key", true)) {
       r->send(400);
       return;
     }
     String key = r->getParam("key", true)->value();
-    for (int i = 0; i < toggleCount; i++) {
-      if (toggles[i].key == key) {
-        toggles[i].state = !toggles[i].state;
-        applyPin(toggles[i]);
-        broadcastWS(key.c_str(), toggles[i].state ? "1" : "0");
+    for (int i = 0; i < widgetCount; i++) {
+      if (localWidgets[i].key == key && localWidgets[i].type == "toggle") {
+        localWidgets[i].value = (localWidgets[i].value == "1") ? "0" : "1";
+        applyPin(localWidgets[i]);
+        broadcastWS(key.c_str(), localWidgets[i].value.c_str());
         if (mqtt.connected())
-          publishToggle(i);
-        r->send(200, "application/json",
-                "{\"ok\":true,\"value\":\"" +
-                    String(toggles[i].state ? "1" : "0") + "\"}");
+          publishWidgetState(i);
+        r->send(200, "application/json", "{\"ok\":true,\"value\":\"" + localWidgets[i].value + "\"}");
         return;
       }
     }
     r->send(404);
   });
 
+  server.on("/api/scan", HTTP_GET, [](AsyncWebServerRequest *r) {
+    if (!isAuthenticated(r)) { r->send(401); return; }
+    int n = WiFi.scanNetworks();
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    for (int i = 0; i < n; i++) {
+      JsonObject obj = arr.add<JsonObject>();
+      obj["s"] = WiFi.SSID(i);
+      obj["r"] = WiFi.RSSI(i);
+    }
+    String out;
+    serializeJson(doc, out);
+    r->send(200, "application/json", out);
+  });
+
+  server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *r) {
+    if (!isAuthenticated(r)) { r->send(401); return; }
+    if (r->hasParam("ssid", true)) strlcpy(cfg.ssid, r->getParam("ssid", true)->value().c_str(), sizeof(cfg.ssid));
+    if (r->hasParam("pass", true) && r->getParam("pass", true)->value().length() > 0) strlcpy(cfg.pass, r->getParam("pass", true)->value().c_str(), sizeof(cfg.pass));
+    if (r->hasParam("api", true)) strlcpy(cfg.api, r->getParam("api", true)->value().c_str(), sizeof(cfg.api));
+    if (r->hasParam("dev", true)) strlcpy(cfg.dev, r->getParam("dev", true)->value().c_str(), sizeof(cfg.dev));
+    if (r->hasParam("a_usr", true) && r->getParam("a_usr", true)->value().length() > 0) strlcpy(cfg.auth_user, r->getParam("a_usr", true)->value().c_str(), sizeof(cfg.auth_user));
+    if (r->hasParam("a_pwd", true) && r->getParam("a_pwd", true)->value().length() > 0) strlcpy(cfg.auth_pass, r->getParam("a_pwd", true)->value().c_str(), sizeof(cfg.auth_pass));
+    saveConfig();
+    r->send(200, "text/plain", "OK");
+    delay(500);
+    ESP.restart();
+  });
+
+  server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest *r) {
+    if (!r->hasParam("user", true) || !r->hasParam("pass", true)) {
+      r->send(400); return;
+    }
+    String user = r->getParam("user", true)->value();
+    String pass = r->getParam("pass", true)->value();
+    bool rem = r->hasParam("rem", true) && r->getParam("rem", true)->value() == "1";
+
+    if (user == String(cfg.auth_user) && pass == String(cfg.auth_pass)) {
+      // Generate new session token
+      String token = "";
+      for (int i=0; i<32; i++) {
+        token += String(random(0,16), HEX);
+      }
+      strlcpy(cfg.session, token.c_str(), sizeof(cfg.session));
+      saveConfig();
+      
+      AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
+      String cookie = "tewe_sess=" + token + "; Path=/; HttpOnly";
+      if (rem) cookie += "; Max-Age=2592000"; // 30 days
+      resp->addHeader("Set-Cookie", cookie);
+      r->send(resp);
+    } else {
+      r->send(401, "text/plain", "Invalid credentials");
+    }
+  });
+
+  server.on("/api/logout", HTTP_POST, [](AsyncWebServerRequest *r) {
+    cfg.session[0] = '\0';
+    saveConfig();
+    AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
+    resp->addHeader("Set-Cookie", "tewe_sess=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    r->send(resp);
+  });
+
   // Dashboard (embedded HTML — no LittleFS needed!)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
-    r->send_P(200, "text/html", DASHBOARD_HTML);
+    if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
+    else r->send_P(200, "text/html", LOGIN_HTML);
   });
 
   server.onNotFound([](AsyncWebServerRequest *r) {
     if (r->url() == "/index.html") {
-      r->send_P(200, "text/html", DASHBOARD_HTML);
+      if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
+      else r->send_P(200, "text/html", LOGIN_HTML);
     } else {
       r->send(404, "text/plain", "Not Found");
     }
@@ -581,6 +678,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
+  loadConfig(); // Load EEPROM configuration
+
   Serial.println(F("\n╔════════════════════════════════════════════╗"));
   Serial.println(F("║   TeweLocal — Offline-First Smart Home     ║"));
   Serial.println(F("║   ESP8266 | WebSocket | MQTT Auto-Sync     ║"));
@@ -603,8 +702,8 @@ void setup() {
     if (authenticate()) {
       fetchWidgets();
       // Apply initial states
-      for (int i = 0; i < toggleCount; i++)
-        applyPin(toggles[i]);
+      for (int i = 0; i < widgetCount; i++)
+        applyPin(localWidgets[i]);
       // Connect MQTT hanya jika credentials valid
       if (mqttCredsValid) {
         connectMQTT();
@@ -617,12 +716,13 @@ void setup() {
   } else {
     Serial.println(F("📴 No internet — offline mode"));
     // Create default toggles from pin map
-    for (int i = 0; i < PIN_MAP_SIZE && toggleCount < 10; i++) {
-      toggles[toggleCount].key = pinMap[i].key;
-      toggles[toggleCount].name = pinMap[i].key;
-      toggles[toggleCount].state = false;
-      toggles[toggleCount].pin = pinMap[i].pin;
-      toggleCount++;
+    for (int i = 0; i < PIN_MAP_SIZE && widgetCount < MAX_WIDGETS; i++) {
+      localWidgets[widgetCount].key = pinMap[i].key;
+      localWidgets[widgetCount].name = pinMap[i].key;
+      localWidgets[widgetCount].type = "toggle";
+      localWidgets[widgetCount].value = "0";
+      localWidgets[widgetCount].pin = pinMap[i].pin;
+      widgetCount++;
     }
   }
 
@@ -633,7 +733,7 @@ void setup() {
   Serial.println("  AP : " + String(AP_SSID) + " → http://192.168.4.1");
   if (WiFi.status() == WL_CONNECTED)
     Serial.println("  STA: http://" + WiFi.localIP().toString());
-  Serial.printf("  Toggles: %d\n\n", toggleCount);
+  Serial.printf("  Widgets: %d\n\n", widgetCount);
 }
 
 // ============================================================
@@ -668,8 +768,8 @@ void loop() {
       if (!mqttReady) {
         if (authenticate()) {
           fetchWidgets();
-          for (int i = 0; i < toggleCount; i++)
-            applyPin(toggles[i]);
+          for (int i = 0; i < widgetCount; i++)
+            applyPin(localWidgets[i]);
           if (mqttCredsValid) {
             connectMQTT();
             mqttReady = true;

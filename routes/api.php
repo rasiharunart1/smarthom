@@ -14,6 +14,7 @@ Route::prefix('devices')->group(function(){
     // Route::post('/auth/{device_code}',[DeviceApiController::class, 'auth']);
 
     Route::post('/auth',[DeviceApiController::class, 'auth']);
+    Route::post('/{device_code}/verify-login', [DeviceApiController::class, 'verifyLogin']);
     Route::get('/{device_code}/widgets', [DeviceApiController::class, 'getWidgets']);
     Route::post('/{device_code}/widgets', [DeviceApiController::class, 'updateWidgets']);
     Route::post('/{device_code}/widgets/{widget_id}', [DeviceApiController::class, 'updateWidget']);

@@ -231,6 +231,24 @@ class DeviceApiController extends Controller
         // Get widgets from JSON column
         $widgetsData = $device->widget?->getAllWidgets() ?? [];
 
+        if ($request->query('lite') == '1') {
+            $liteWidgets = [];
+            foreach ($widgetsData as $key => $w) {
+                $liteWidgets[$key] = [
+                    'name' => $w['name'] ?? '',
+                    'type' => $w['type'] ?? 'toggle',
+                    'value' => $w['value'] ?? '0',
+                    'config' => [
+                        'unit' => $w['config']['unit'] ?? ''
+                    ]
+                ];
+            }
+            return response()->json([
+                'success' => true,
+                'widgets' => $liteWidgets
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'device' => [
@@ -426,5 +444,29 @@ class DeviceApiController extends Controller
             // 'reverb_broadcast' => true,
             'timestamp' => now()->toIso8601String()
         ]);
+    }
+
+    public function verifyLogin(Request $request, $deviceCode)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $device = Device::where('device_code', $deviceCode)->first();
+        if (!$device) {
+            return response()->json(['success' => false, 'message' => 'Device not found'], 404);
+        }
+
+        if (\Illuminate\Support\Facades\Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if ($device->user_id === $user->id) {
+                return response()->json(['success' => true]);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Device belongs to another user'], 403);
+            }
+        }
+
+        return response()->json(['success' => false, 'message' => 'Invalid credentials'], 401);
     }
 }
