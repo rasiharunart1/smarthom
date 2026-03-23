@@ -229,26 +229,57 @@ class DeviceApiController extends Controller
         }
 
         // Get widgets from JSON column
-        $widgetsData = $device->widget?->getAllWidgets() ?? [];
+        // $widgetsData = $device->widget?->getAllWidgets() ?? [];
 
+        // if ($request->query('lite') == '1') {
+        //     $liteWidgets = [];
+        //     foreach ($widgetsData as $key => $w) {
+        //         $liteWidgets[$key] = [
+        //             'name' => $w['name'] ?? '',
+        //             'type' => $w['type'] ?? 'toggle',
+        //             'value' => $w['value'] ?? '0'
+        //             // 'config' => [
+        //             //     'unit' => $w['config']['unit'] ?? ''
+        //             // ]
+        //         ];
+        //     }
+        //     return response()->json([
+        //         'success' => true,
+        //         'widgets' => $liteWidgets
+        //     ]);
+        // }
+
+        // return response()->json([
+        //     'success' => true,
+        //     'device' => [
+        //         'id' => $device->id,
+        //         'code' => $device->device_code,
+        //         'name' => $device->name,
+        //         'user_id' => $device->user_id
+        //     ],
+        //     'widgets' => $widgetsData,
+        //     'widget_count' => count($widgetsData),
+        //     'layout_version' => $device->widget?->layout_version ?? 1,
+        //     'timestamp' => now()->toIso8601String()
+        // ]);
+       $widgetsData = $device->widget?->getAllWidgets() ?? [];
+
+        // Default: full
+        $widgets = $widgetsData;
+        
+        // Lite mode
         if ($request->query('lite') == '1') {
-            $liteWidgets = [];
+            $widgets = [];
+        
             foreach ($widgetsData as $key => $w) {
-                $liteWidgets[$key] = [
+                $widgets[$key] = [
                     'name' => $w['name'] ?? '',
                     'type' => $w['type'] ?? 'toggle',
                     'value' => $w['value'] ?? '0',
-                    'config' => [
-                        'unit' => $w['config']['unit'] ?? ''
-                    ]
                 ];
             }
-            return response()->json([
-                'success' => true,
-                'widgets' => $liteWidgets
-            ]);
         }
-
+        
         return response()->json([
             'success' => true,
             'device' => [
@@ -257,8 +288,8 @@ class DeviceApiController extends Controller
                 'name' => $device->name,
                 'user_id' => $device->user_id
             ],
-            'widgets' => $widgetsData,
-            'widget_count' => count($widgetsData),
+            'widgets' => $widgets, // ✅ PENTING
+            'widget_count' => count($widgets),
             'layout_version' => $device->widget?->layout_version ?? 1,
             'timestamp' => now()->toIso8601String()
         ]);
