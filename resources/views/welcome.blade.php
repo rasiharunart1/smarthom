@@ -29,9 +29,7 @@
         }
 
         body {
-            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
+            background-color: #050B14;
             background-attachment: fixed;
             color: var(--text-primary);
             min-height: 100vh;
@@ -41,12 +39,6 @@
             justify-content: center;
             padding: 20px;
             overflow-x: hidden;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
         }
 
         .container {
@@ -197,29 +189,45 @@
             opacity: 0.6;
         }
 
-        /* Decorative elements */
         .decoration {
-            position: absolute;
-            z-index: -1;
-            filter: blur(80px);
+            position: fixed;
+            z-index: 0;
+            filter: blur(120px);
             border-radius: 50%;
-            opacity: 0.4;
+            pointer-events: none;
         }
 
         .decor-1 {
-            width: 300px;
-            height: 300px;
-            background: var(--primary-green);
-            top: -100px;
-            right: -100px;
+            width: 50%;
+            height: 50%;
+            background: rgba(16, 185, 129, 0.18);
+            top: -15%;
+            left: -10%;
+            mix-blend-mode: screen;
         }
 
         .decor-2 {
-            width: 250px;
-            height: 250px;
-            background: #4f46e5;
-            bottom: -50px;
-            left: -50px;
+            width: 60%;
+            height: 60%;
+            background: rgba(37, 99, 235, 0.18);
+            bottom: -15%;
+            right: -10%;
+            mix-blend-mode: screen;
+        }
+
+        .decor-3 {
+            width: 30%;
+            height: 30%;
+            background: rgba(20, 184, 166, 0.09);
+            top: 20%;
+            right: 15%;
+            filter: blur(100px);
+            mix-blend-mode: screen;
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
@@ -227,8 +235,9 @@
 <body>
     <div class="decoration decor-1"></div>
     <div class="decoration decor-2"></div>
+    <div class="decoration decor-3"></div>
 
-    <div class="container">
+    <div class="main-content container">
         <div class="hero-text">
             <h1>Tewe.io<br>IoT PLATFORM</h1>
             <p>Platform IoT masa depan yang didesain untuk skalabilitas dan efisiensi. Hubungkan, pantau, dan kendalikan berbagai perangkat pintar Anda dalam satu ekosistem yang canggih dan realtime.</p>
