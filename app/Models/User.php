@@ -24,7 +24,6 @@ class User extends Authenticatable
         'role', // 'admin' or 'user'
         'subscription_plan', // 'free', 'pro', 'enterprise'
         'subscription_expires_at',
-        'lstm_allowed',
     ];
 
     /**
@@ -48,7 +47,6 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'subscription_expires_at' => 'datetime',
-            'lstm_allowed' => 'boolean',
         ];
     }
 
@@ -123,12 +121,4 @@ class User extends Authenticatable
         return $currentCount < $max;
     }
 
-    /**
-     * Check if user is allowed to use LSTM features (Database driven)
-     */
-    public function canUseLstm(): bool
-    {
-        // Now fully database driven (Admin controls this)
-        return (bool) $this->lstm_allowed;
-    }
 }

@@ -13,13 +13,13 @@
 // ============================================================
 
 #include <ArduinoJson.h>
+#include <EEPROM.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 #include <WiFiClientSecureBearSSL.h>
-#include <EEPROM.h>
 
 // ================= CONFIG & EEPROM =================
 struct EepromConfig {
@@ -41,7 +41,8 @@ void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, cfg);
   if (cfg.magic != 0x54455747) { // "TEW7" formats to store local config
-    Serial.println(F("⚠ No valid EEPROM config found. Formatting with defaults."));
+    Serial.println(
+        F("⚠ No valid EEPROM config found. Formatting with defaults."));
     cfg.magic = 0x54455747;
     cfg.ssid[0] = '\0';
     cfg.pass[0] = '\0';
@@ -145,7 +146,8 @@ void flushAPISyncQueue() {
   for (int i = 0; i < syncQueueCount; i++) {
     HTTPClient http;
     httpsClient.setInsecure();
-    String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets/" + syncQueue[i].key;
+    String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets/" +
+                 syncQueue[i].key;
     http.begin(httpsClient, url);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     http.setTimeout(5000);
@@ -161,9 +163,7 @@ void flushAPISyncQueue() {
 }
 
 // Helper: check if string is valid (not null, not empty, not "null")
-bool isValidStr(const String &s) {
-  return s.length() > 0 && s != "null";
-}
+bool isValidStr(const String &s) { return s.length() > 0 && s != "null"; }
 
 // ============================================================
 // WIFI
@@ -220,7 +220,8 @@ bool authenticate() {
 
   JsonDocument doc;
   // Zero-copy parsing: casting to mutable char* saves RAM
-  DeserializationError error = deserializeJson(doc, const_cast<char*>(resp.c_str()));
+  DeserializationError error =
+      deserializeJson(doc, const_cast<char *>(resp.c_str()));
   if (error) {
     Serial.print("  Auth deserialize gagal: ");
     Serial.println(error.c_str());
@@ -239,10 +240,12 @@ bool authenticate() {
   httpsClient.stop(); // FORCE CLOSE to prevent socket reuse bugs
 
   // Validate MQTT credentials
-  mqttCredsValid = isValidStr(mqttHost) && isValidStr(mqttUser) && isValidStr(mqttPass);
+  mqttCredsValid =
+      isValidStr(mqttHost) && isValidStr(mqttUser) && isValidStr(mqttPass);
   if (!mqttCredsValid) {
     Serial.println(F("  ⚠ MQTT credentials null/kosong dari server!"));
-    Serial.println(F("  → Cek MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD di .env server"));
+    Serial.println(
+        F("  → Cek MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD di .env server"));
     Serial.println(F("  → Firmware tetap jalan dalam mode lokal (tanpa MQTT)"));
   }
 
@@ -278,8 +281,10 @@ bool fetchWidgets() {
   filter["widgets"]["*"]["config"]["unit"] = true;
 
   JsonDocument doc;
-  // STREAM PARSING: Read directly from socket. Saves massive RAM by bypassing http.getString()
-  DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+  // STREAM PARSING: Read directly from socket. Saves massive RAM by bypassing
+  // http.getString()
+  DeserializationError error = deserializeJson(
+      doc, http.getStream(), DeserializationOption::Filter(filter));
   if (error) {
     Serial.print("  Fetch deserialize gagal: ");
     Serial.println(error.c_str());
@@ -290,7 +295,7 @@ bool fetchWidgets() {
 
   String base = "users/" + String(userId) + "/devices/" + String(cfg.dev);
   JsonObject widgets = doc["widgets"].as<JsonObject>();
-  
+
   http.end();
   httpsClient.stop();
 
@@ -320,7 +325,8 @@ bool fetchWidgets() {
       }
     }
 
-    Serial.printf("  [%d] %s (type=%s) pin=%d val=%s\n", widgetCount, key.c_str(), w.type.c_str(), w.pin, w.value.c_str());
+    Serial.printf("  [%d] %s (type=%s) pin=%d val=%s\n", widgetCount,
+                  key.c_str(), w.type.c_str(), w.pin, w.value.c_str());
     widgetCount++;
   }
 
@@ -335,13 +341,16 @@ bool fetchWidgets() {
 void applyPin(LocalWidget &w) {
   if (w.pin < 0 || w.type != "toggle")
     return;
-  digitalWrite(w.pin, (w.value == "1" || w.value == "true") ? LOW : HIGH); // Active LOW relay
+  digitalWrite(w.pin, (w.value == "1" || w.value == "true")
+                          ? LOW
+                          : HIGH); // Active LOW relay
 }
 
 void publishWidgetState(int i) {
   if (!mqtt.connected())
     return;
-  String topic = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/sensors/" + localWidgets[i].key;
+  String topic = "users/" + String(userId) + "/devices/" + String(cfg.dev) +
+                 "/sensors/" + localWidgets[i].key;
   mqtt.publish(topic.c_str(), localWidgets[i].value.c_str(), true);
 }
 
@@ -402,7 +411,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
     msg += (char)payload[i];
 
   String topicStr = String(topic);
-  String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+  String baseCtrl =
+      "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
 
   for (int i = 0; i < widgetCount; i++) {
     if (localWidgets[i].type == "toggle") {
@@ -420,37 +430,41 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
 bool isMqttSetup = false;
 
 void setupMQTT() {
-  if (isMqttSetup) return;
-  
+  if (isMqttSetup)
+    return;
+
   Serial.println(F("⚙️ Setting up MQTT client..."));
   mqttSecure.setInsecure();
   // Limit memory usage for TLS
-  mqttSecure.setBufferSizes(1024, 512); 
-  
+  mqttSecure.setBufferSizes(1024, 512);
+
   mqtt.setServer(mqttHost.c_str(), mqttPort);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512);
   mqtt.setKeepAlive(30);
-  
+
   isMqttSetup = true;
 }
 
 void connectMQTT() {
-  if (!isMqttSetup) setupMQTT();
+  if (!isMqttSetup)
+    setupMQTT();
 
   Serial.printf("MQTT → %s:%d user=%s heap=%d\n", mqttHost.c_str(), mqttPort,
                 mqttUser.c_str(), ESP.getFreeHeap());
 
   String cid = "TeweLocal-" + String(cfg.dev) + "-" + String(millis() % 10000);
-  
+
   // Ensure connection is fully closed before retrying
-  if (mqtt.connected()) mqtt.disconnect();
+  if (mqtt.connected())
+    mqtt.disconnect();
   mqttSecure.stop();
   delay(10);
-  
+
   if (mqtt.connect(cid.c_str(), mqttUser.c_str(), mqttPass.c_str())) {
     Serial.println(F("📡 MQTT connected!"));
-    String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+    String baseCtrl =
+        "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
     for (int i = 0; i < widgetCount; i++) {
       if (localWidgets[i].type == "toggle") {
         mqtt.subscribe((baseCtrl + localWidgets[i].key).c_str(), 1);
@@ -523,14 +537,16 @@ void onWsEvent(AsyncWebSocket *s, AsyncWebSocketClient *client,
 #include "login_html.h"
 
 bool isAuthenticated(AsyncWebServerRequest *request) {
-  if (strlen(cfg.session) == 0) return false;
+  if (strlen(cfg.session) == 0)
+    return false;
   if (request->hasHeader("Cookie")) {
     String cookie = request->header("Cookie");
     int idx = cookie.indexOf("tewe_sess=");
     if (idx != -1) {
       String sess = cookie.substring(idx + 10);
       int endIdx = sess.indexOf(';');
-      if (endIdx != -1) sess = sess.substring(0, endIdx);
+      if (endIdx != -1)
+        sess = sess.substring(0, endIdx);
       sess.trim();
       return (sess == String(cfg.session));
     }
@@ -550,12 +566,18 @@ void setupWebServer() {
 
   // REST API
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) { r->send(401); return; }
+    if (!isAuthenticated(r)) {
+      r->send(401);
+      return;
+    }
     r->send(200, "application/json", buildInitJson());
   });
 
   server.on("/api/toggle", HTTP_POST, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) { r->send(401); return; }
+    if (!isAuthenticated(r)) {
+      r->send(401);
+      return;
+    }
     if (!r->hasParam("key", true)) {
       r->send(400);
       return;
@@ -568,7 +590,8 @@ void setupWebServer() {
         broadcastWS(key.c_str(), localWidgets[i].value.c_str());
         if (mqtt.connected())
           publishWidgetState(i);
-        r->send(200, "application/json", "{\"ok\":true,\"value\":\"" + localWidgets[i].value + "\"}");
+        r->send(200, "application/json",
+                "{\"ok\":true,\"value\":\"" + localWidgets[i].value + "\"}");
         return;
       }
     }
@@ -576,7 +599,10 @@ void setupWebServer() {
   });
 
   server.on("/api/scan", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) { r->send(401); return; }
+    if (!isAuthenticated(r)) {
+      r->send(401);
+      return;
+    }
     int n = WiFi.scanNetworks();
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
@@ -591,13 +617,31 @@ void setupWebServer() {
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) { r->send(401); return; }
-    if (r->hasParam("ssid", true)) strlcpy(cfg.ssid, r->getParam("ssid", true)->value().c_str(), sizeof(cfg.ssid));
-    if (r->hasParam("pass", true) && r->getParam("pass", true)->value().length() > 0) strlcpy(cfg.pass, r->getParam("pass", true)->value().c_str(), sizeof(cfg.pass));
-    if (r->hasParam("api", true)) strlcpy(cfg.api, r->getParam("api", true)->value().c_str(), sizeof(cfg.api));
-    if (r->hasParam("dev", true)) strlcpy(cfg.dev, r->getParam("dev", true)->value().c_str(), sizeof(cfg.dev));
-    if (r->hasParam("a_usr", true) && r->getParam("a_usr", true)->value().length() > 0) strlcpy(cfg.auth_user, r->getParam("a_usr", true)->value().c_str(), sizeof(cfg.auth_user));
-    if (r->hasParam("a_pwd", true) && r->getParam("a_pwd", true)->value().length() > 0) strlcpy(cfg.auth_pass, r->getParam("a_pwd", true)->value().c_str(), sizeof(cfg.auth_pass));
+    if (!isAuthenticated(r)) {
+      r->send(401);
+      return;
+    }
+    if (r->hasParam("ssid", true))
+      strlcpy(cfg.ssid, r->getParam("ssid", true)->value().c_str(),
+              sizeof(cfg.ssid));
+    if (r->hasParam("pass", true) &&
+        r->getParam("pass", true)->value().length() > 0)
+      strlcpy(cfg.pass, r->getParam("pass", true)->value().c_str(),
+              sizeof(cfg.pass));
+    if (r->hasParam("api", true))
+      strlcpy(cfg.api, r->getParam("api", true)->value().c_str(),
+              sizeof(cfg.api));
+    if (r->hasParam("dev", true))
+      strlcpy(cfg.dev, r->getParam("dev", true)->value().c_str(),
+              sizeof(cfg.dev));
+    if (r->hasParam("a_usr", true) &&
+        r->getParam("a_usr", true)->value().length() > 0)
+      strlcpy(cfg.auth_user, r->getParam("a_usr", true)->value().c_str(),
+              sizeof(cfg.auth_user));
+    if (r->hasParam("a_pwd", true) &&
+        r->getParam("a_pwd", true)->value().length() > 0)
+      strlcpy(cfg.auth_pass, r->getParam("a_pwd", true)->value().c_str(),
+              sizeof(cfg.auth_pass));
     saveConfig();
     r->send(200, "text/plain", "OK");
     delay(500);
@@ -606,24 +650,27 @@ void setupWebServer() {
 
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest *r) {
     if (!r->hasParam("user", true) || !r->hasParam("pass", true)) {
-      r->send(400); return;
+      r->send(400);
+      return;
     }
     String user = r->getParam("user", true)->value();
     String pass = r->getParam("pass", true)->value();
-    bool rem = r->hasParam("rem", true) && r->getParam("rem", true)->value() == "1";
+    bool rem =
+        r->hasParam("rem", true) && r->getParam("rem", true)->value() == "1";
 
     if (user == String(cfg.auth_user) && pass == String(cfg.auth_pass)) {
       // Generate new session token
       String token = "";
-      for (int i=0; i<32; i++) {
-        token += String(random(0,16), HEX);
+      for (int i = 0; i < 32; i++) {
+        token += String(random(0, 16), HEX);
       }
       strlcpy(cfg.session, token.c_str(), sizeof(cfg.session));
       saveConfig();
-      
+
       AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
       String cookie = "tewe_sess=" + token + "; Path=/; HttpOnly";
-      if (rem) cookie += "; Max-Age=2592000"; // 30 days
+      if (rem)
+        cookie += "; Max-Age=2592000"; // 30 days
       resp->addHeader("Set-Cookie", cookie);
       r->send(resp);
     } else {
@@ -635,20 +682,26 @@ void setupWebServer() {
     cfg.session[0] = '\0';
     saveConfig();
     AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
-    resp->addHeader("Set-Cookie", "tewe_sess=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    resp->addHeader(
+        "Set-Cookie",
+        "tewe_sess=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
     r->send(resp);
   });
 
   // Dashboard (embedded HTML — no LittleFS needed!)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
-    else r->send_P(200, "text/html", LOGIN_HTML);
+    if (isAuthenticated(r))
+      r->send_P(200, "text/html", DASHBOARD_HTML);
+    else
+      r->send_P(200, "text/html", LOGIN_HTML);
   });
 
   server.onNotFound([](AsyncWebServerRequest *r) {
     if (r->url() == "/index.html") {
-      if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
-      else r->send_P(200, "text/html", LOGIN_HTML);
+      if (isAuthenticated(r))
+        r->send_P(200, "text/html", DASHBOARD_HTML);
+      else
+        r->send_P(200, "text/html", LOGIN_HTML);
     } else {
       r->send(404, "text/plain", "Not Found");
     }

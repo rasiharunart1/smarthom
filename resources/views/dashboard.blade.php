@@ -59,19 +59,6 @@
                 <button type="button" class="btn glass-button btn-primary" id="toggleEditMode" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); width: auto; margin-top: 0;">
                     <i class="fas fa-th-large mr-2"></i>Layout
                 </button>
-                
-                @if(auth()->user()->canUseLstm())
-                    <button type="button" class="btn glass-button {{ $selectedDevice->lstm_enabled ? 'btn-ai-active' : '' }}" 
-                        id="toggleLstmBtn"
-                        onclick="toggleLstm('{{ $selectedDevice->device_code }}')"
-                        style="width: auto; margin-top: 0; position: relative; overflow: hidden; {{ $selectedDevice->lstm_enabled ? 'background: rgba(139, 92, 246, 0.2); border-color: rgba(139, 92, 246, 0.5); color: #a78bfa;' : 'background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: var(--text-muted);' }}">
-                        <i class="fas fa-brain mr-2 {{ $selectedDevice->lstm_enabled ? 'fa-pulse' : '' }}"></i>
-                        <span id="lstmBtnText">{{ $selectedDevice->lstm_enabled ? 'AI Active' : 'AI Control' }}</span>
-                        @if($selectedDevice->lstm_enabled)
-                            <div class="ai-glow"></div>
-                        @endif
-                    </button>
-                @endif
                 <button type="button" class="btn glass-button glass-button-primary" id="saveLayout" style="display: none; width: auto; margin-top: 0;">
                     <i class="fas fa-save mr-2"></i>Store Grid
                 </button>
@@ -335,23 +322,6 @@
         .grid-stack-item {
             transition: transform 0.3s ease, opacity 0.2s ease !important;
         }
-        
-        .grid-stack-item.grid-stack-item-moving {
-            opacity: 0.8;
-            z-index: 100;
-        }
-        
-        /* AI Status Indicators */
-        .ai-status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #718096;
-        }
-        .ai-status-ready { background: #10b981; box-shadow: 0 0 8px #10b981; }
-        .ai-status-error { background: #ef4444; }
-        .ai-status-processing { background: #3b82f6; animation: ai-pulse 1s infinite; }
-        @keyframes ai-pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         /* Sidebar Toolbox */
         .toolbox-item {
             display: flex;
@@ -413,24 +383,6 @@
             background: #1e2749; /* Solid bg when dragging */
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border: 1px solid var(--primary-green);
-        }
-
-        /* AI Glow Effect */
-        .ai-glow {
-            position: absolute;
-            top: 0;
-            left: -50%;
-            width: 200%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
-            transform: skewX(-20deg);
-            animation: shine 3s infinite;
-            pointer-events: none;
-        }
-        
-        @keyframes shine {
-            0% { left: -50%; }
-            100% { left: 150%; }
         }
     </style>
 @endpush
