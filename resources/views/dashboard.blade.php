@@ -722,11 +722,19 @@
                                 const widgetContent = $(item.el).find('.grid-stack-item-content');
                                 widgetContent.html('<div class="widget-wrapper">' + response.html + '</div>');
                                 
-                                // Initialize any plugins for the new widget (e.g., Charts)
-                                // This is simplified; for charts we might need a separate init trigger
-                                
-                                // Initialize any plugins for the new widget (e.g., Charts)
-                                // This is simplified; for charts we might need a separate init trigger
+                                // Initialize components that require post-DOM injection logic
+                                if (response.widget.type === 'chart') {
+                                    createChart(response.widget);
+                                } else if (response.widget.type === 'gauge') {
+                                    if (window.updateGaugeModern) {
+                                        window.updateGaugeModern(
+                                            response.widget.key, 
+                                            response.widget.value, 
+                                            response.widget.min, 
+                                            response.widget.max
+                                        );
+                                    }
+                                }
                             }
                         })
                         .fail(function(xhr) {
