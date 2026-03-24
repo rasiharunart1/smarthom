@@ -945,15 +945,19 @@
 
                 const client = window.mqttClient;
 
-                // Override/Add listeners to the global client
                 client.onConnect = () => {
                     console.log('✅ Connected to HiveMQ Cloud');
                     
-                    // Subscribe STRICTLY to sensors (confirmed state feedback from device)
-                    // We NEVER subscribe to /control/ on the dashboard to avoid loops
+                    // Subscribe to sensors (confirmed state feedback from device)
                     const sensorTopic = `users/${userId}/devices/${deviceCode}/sensors/#`;
                     client.subscribe(sensorTopic, (topic, payload) => {
                         handleSensorMessage(topic, payload);
+                    });
+                    
+                    // Subscribe to control (real-time sync between multiple clients/browsers)
+                    const controlTopic = `users/${userId}/devices/${deviceCode}/control/#`;
+                    client.subscribe(controlTopic, (topic, payload) => {
+                        handleControlMessage(topic, payload);
                     });
                     
                     // Device connectivity status
@@ -967,10 +971,11 @@
                 client.onMessage = (topic, message) => {
                     if (topic.includes('/sensors/')) {
                         handleSensorMessage(topic, message);
+                    } else if (topic.includes('/control/')) {
+                        handleControlMessage(topic, message);
                     } else if (topic.endsWith('/status')) {
                         handleStatusMessage(message);
                     }
-                    // /control/ is explicitly ignored here
                 };
 
             } else {
