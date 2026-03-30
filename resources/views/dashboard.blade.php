@@ -220,6 +220,28 @@
 
 @push('styles')
     <style>
+        /* ============================================================
+         * MODAL Z-INDEX FIX
+         * GridStack / sidebar bisa meng-override z-index Bootstrap 4.
+         * Bootstrap 4 default: backdrop=1040, modal=1050
+         * Sidebar z-index: 1035 — harus di BAWAH backdrop.
+         * ============================================================ */
+        .modal-backdrop           { z-index: 1060 !important; }
+        #editWidgetModal          { z-index: 1070 !important; pointer-events: auto !important; }
+        #editWidgetModal *        { pointer-events: auto !important; }
+        #editWidgetModal .modal-dialog { pointer-events: auto !important; }
+
+        /* Pastikan form & button di dalam modal selalu bisa diklik */
+        #editWidgetForm input,
+        #editWidgetForm select,
+        #editWidgetForm textarea,
+        #editWidgetForm button,
+        #editWidgetModal button   { pointer-events: auto !important; cursor: pointer !important; }
+
+        /* Saat modal terbuka, body tidak boleh punya elemen di atasnya */
+        body.modal-open           { overflow: hidden !important; }
+        body.modal-open .sidebar  { z-index: 1035 !important; } /* Pastikan sidebar di bawah backdrop */
+
         .pulse-online {
             animation: pulse-ring 2s infinite;
         }
