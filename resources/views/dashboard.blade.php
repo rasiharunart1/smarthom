@@ -1345,7 +1345,20 @@
                 $('#noScheduleMsg').show();
             }
 
-            $('#editWidgetModal').modal('show');
+            // Open modal — gunakan vanilla bootstrap agar tidak konflik dengan jQuery
+            const modalEl = document.getElementById('editWidgetModal');
+            // Pastikan tidak ada modal backdrop orphan
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl, {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+            bsModal.show();
         }
 
         function addScheduleRow(data = null) {
@@ -1505,6 +1518,59 @@
         window.deleteWidget = deleteWidget;
         window.editWidget = editWidget;
         window.addScheduleRow = addScheduleRow;
+
+        // ============================================================
+        // SCHEDULE RUNNER (client-side, berjalan tiap 30 detik)
+        // Membaca widget.config.schedules dari widgetRegistry dan
+        // mempublish MQTT pada waktu yang tepat.
+        // ============================================================
+        const _scheduleFired = {};
+
+        function runSchedules() {
+            const now = new Date();
+            // Format HH:MM (sesuai PHP date('H:i'))
+            const hhmm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+            const todayDay = now.getDay(); // 0=Sun..6=Sat
+
+            Object.values(widgetRegistry).forEach(widget => {
+                const schedules = widget.config?.schedules;
+                if (!Array.isArray(schedules) || schedules.length === 0) return;
+
+                schedules.forEach((sched, idx) => {
+                    if (!sched.enabled || sched.enabled === '0' || sched.enabled === false) return;
+
+                    // Cocokkan waktu
+                    const schedTime = sched.time ? sched.time.substring(0,5) : '';
+                    if (schedTime !== hhmm) return;
+
+                    // Cocokkan hari (array berisi string '0'-'6')
+                    if (Array.isArray(sched.days) && sched.days.length > 0) {
+                        if (!sched.days.includes(String(todayDay))) return;
+                    }
+
+                    // Hindari double-fire dalam menit yang sama
+                    const fireId = `${widget.key}_${idx}_${hhmm}`;
+                    if (_scheduleFired[fireId]) return;
+                    _scheduleFired[fireId] = true;
+
+                    // Bersihkan token lama (max 200)
+                    const keys = Object.keys(_scheduleFired);
+                    if (keys.length > 200) delete _scheduleFired[keys[0]];
+
+                    const value = String(sched.value ?? '0');
+                    console.log(`⏰ Schedule fired: ${widget.key} → ${value} (${hhmm})`);
+
+                    // Publish lewat MQTT (dan fallback DB update)
+                    updateWidgetValue(widget.key, value, true);
+                    updateWidgetUI(widget.key, value, widget.type);
+                    showNotification(`⏰ Schedule: ${widget.name || widget.key} → ${value === '1' ? 'ON' : 'OFF'}`, 'success');
+                });
+            });
+        }
+
+        // Jalankan setiap 30 detik (presisi ±30 detik, cukup untuk schedule per-menit)
+        setInterval(runSchedules, 30000);
+        runSchedules(); // Jalankan sekali saat load
         // LSTM Toggle Logic
         function toggleLstm(deviceCode) {
             const btn = document.getElementById('toggleLstmBtn');

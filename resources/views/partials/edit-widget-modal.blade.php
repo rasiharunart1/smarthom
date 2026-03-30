@@ -1,11 +1,11 @@
-<div class="modal fade" id="editWidgetModal" role="dialog">
+<div class="modal fade" id="editWidgetModal" tabindex="-1" role="dialog" aria-labelledby="editWidgetModalLabel" aria-modal="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content glass-modal-content">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title" style="color: #60a5fa; font-weight: 600;">
                     <i class="fas fa-edit mr-2"></i>Tune Module Parameters
                 </h5>
-                <button type="button" class="close text-white opacity-1" data-dismiss="modal">
+                <button type="button" class="close text-white opacity-1" data-bs-dismiss="modal" aria-label="Close">
                     <span>&times;</span>
                 </button>
             </div>
@@ -109,7 +109,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-0 pt-0 pb-4 justify-content-center">
-                    <button type="button" class="btn glass-button btn-secondary mr-2" data-dismiss="modal">
+                    <button type="button" class="btn glass-button btn-secondary mr-2" data-bs-dismiss="modal">
                         Discard
                     </button>
                     <button type="submit" class="btn glass-button btn-primary" id="submitEditWidgetBtn" style="background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3); color: #60a5fa;">
