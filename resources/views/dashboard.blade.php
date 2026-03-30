@@ -1345,20 +1345,12 @@
                 $('#noScheduleMsg').show();
             }
 
-            // Open modal — gunakan vanilla bootstrap agar tidak konflik dengan jQuery
-            const modalEl = document.getElementById('editWidgetModal');
-            // Pastikan tidak ada modal backdrop orphan
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
+            // Open modal — Bootstrap 4 jQuery API
+            // Bersihkan orphan backdrop dulu (cegah "ghost modal")
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open').css({ overflow: '', paddingRight: '' });
+            $('#editWidgetModal').modal('show');
 
-            const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl, {
-                backdrop: true,
-                keyboard: true,
-                focus: true
-            });
-            bsModal.show();
         }
 
         function addScheduleRow(data = null) {
