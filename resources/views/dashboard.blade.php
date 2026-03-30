@@ -240,7 +240,20 @@
 
         /* Saat modal terbuka, body tidak boleh punya elemen di atasnya */
         body.modal-open           { overflow: hidden !important; }
-        body.modal-open .sidebar  { z-index: 1035 !important; } /* Pastikan sidebar di bawah backdrop */
+        body.modal-open .sidebar  { z-index: 1035 !important; }
+
+        /* ============================================================
+         * ROOT CAUSE FIX:
+         * .grid-stack-item-content { inset: 0 !important } di app.blade.php
+         * menyebabkan setiap widget-card ter-stretch ke seluruh viewport
+         * → menjadi "ghost overlay" transparan yang menutupi modal.
+         * Saat modal terbuka, nonaktifkan semua pointer-events grid.
+         * ============================================================ */
+        body.modal-widget-open .grid-stack,
+        body.modal-widget-open .grid-stack-item,
+        body.modal-widget-open .grid-stack-item-content,
+        body.modal-widget-open .widget-wrapper,
+        body.modal-widget-open .widget-card-modern   { pointer-events: none !important; }
 
         .pulse-online {
             animation: pulse-ring 2s infinite;
@@ -1371,9 +1384,18 @@
             // Bersihkan orphan backdrop dulu (cegah "ghost modal")
             $('.modal-backdrop').remove();
             $('body').removeClass('modal-open').css({ overflow: '', paddingRight: '' });
+
+            // Disable grid pointer-events agar widget cards tidak menghalangi modal
+            $('body').addClass('modal-widget-open');
+
             $('#editWidgetModal').modal('show');
 
+            // Hapus class saat modal ditutup
+            $('#editWidgetModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
+                $('body').removeClass('modal-widget-open');
+            });
         }
+
 
         function addScheduleRow(data = null) {
             const container = $('#scheduleContainer');
