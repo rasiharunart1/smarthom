@@ -59,6 +59,19 @@
                 <button type="button" class="btn glass-button btn-primary" id="toggleEditMode" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); width: auto; margin-top: 0;">
                     <i class="fas fa-th-large mr-2"></i>Layout
                 </button>
+                
+                @if(auth()->user()->canUseLstm())
+                    <button type="button" class="btn glass-button {{ $selectedDevice->lstm_enabled ? 'btn-ai-active' : '' }}" 
+                        id="toggleLstmBtn"
+                        onclick="toggleLstm('{{ $selectedDevice->device_code }}')"
+                        style="width: auto; margin-top: 0; position: relative; overflow: hidden; {{ $selectedDevice->lstm_enabled ? 'background: rgba(139, 92, 246, 0.2); border-color: rgba(139, 92, 246, 0.5); color: #a78bfa;' : 'background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: var(--text-muted);' }}">
+                        <i class="fas fa-brain mr-2 {{ $selectedDevice->lstm_enabled ? 'fa-pulse' : '' }}"></i>
+                        <span id="lstmBtnText">{{ $selectedDevice->lstm_enabled ? 'AI Active' : 'AI Control' }}</span>
+                        @if($selectedDevice->lstm_enabled)
+                            <div class="ai-glow"></div>
+                        @endif
+                    </button>
+                @endif
                 <button type="button" class="btn glass-button glass-button-primary" id="saveLayout" style="display: none; width: auto; margin-top: 0;">
                     <i class="fas fa-save mr-2"></i>Store Grid
                 </button>
@@ -220,41 +233,6 @@
 
 @push('styles')
     <style>
-        /* ============================================================
-         * MODAL Z-INDEX FIX
-         * GridStack / sidebar bisa meng-override z-index Bootstrap 4.
-         * Bootstrap 4 default: backdrop=1040, modal=1050
-         * Sidebar z-index: 1035 — harus di BAWAH backdrop.
-         * ============================================================ */
-        .modal-backdrop           { z-index: 1060 !important; }
-        #editWidgetModal          { z-index: 1070 !important; pointer-events: auto !important; }
-        #editWidgetModal *        { pointer-events: auto !important; }
-        #editWidgetModal .modal-dialog { pointer-events: auto !important; }
-
-        /* Pastikan form & button di dalam modal selalu bisa diklik */
-        #editWidgetForm input,
-        #editWidgetForm select,
-        #editWidgetForm textarea,
-        #editWidgetForm button,
-        #editWidgetModal button   { pointer-events: auto !important; cursor: pointer !important; }
-
-        /* Saat modal terbuka, body tidak boleh punya elemen di atasnya */
-        body.modal-open           { overflow: hidden !important; }
-        body.modal-open .sidebar  { z-index: 1035 !important; }
-
-        /* ============================================================
-         * ROOT CAUSE FIX:
-         * .grid-stack-item-content { inset: 0 !important } di app.blade.php
-         * menyebabkan setiap widget-card ter-stretch ke seluruh viewport
-         * → menjadi "ghost overlay" transparan yang menutupi modal.
-         * Saat modal terbuka, nonaktifkan semua pointer-events grid.
-         * ============================================================ */
-        body.modal-widget-open .grid-stack,
-        body.modal-widget-open .grid-stack-item,
-        body.modal-widget-open .grid-stack-item-content,
-        body.modal-widget-open .widget-wrapper,
-        body.modal-widget-open .widget-card-modern   { pointer-events: none !important; }
-
         .pulse-online {
             animation: pulse-ring 2s infinite;
         }
@@ -357,6 +335,23 @@
         .grid-stack-item {
             transition: transform 0.3s ease, opacity 0.2s ease !important;
         }
+        
+        .grid-stack-item.grid-stack-item-moving {
+            opacity: 0.8;
+            z-index: 100;
+        }
+        
+        /* AI Status Indicators */
+        .ai-status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #718096;
+        }
+        .ai-status-ready { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .ai-status-error { background: #ef4444; }
+        .ai-status-processing { background: #3b82f6; animation: ai-pulse 1s infinite; }
+        @keyframes ai-pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
         /* Sidebar Toolbox */
         .toolbox-item {
             display: flex;
@@ -418,6 +413,24 @@
             background: #1e2749; /* Solid bg when dragging */
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border: 1px solid var(--primary-green);
+        }
+
+        /* AI Glow Effect */
+        .ai-glow {
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
+            transform: skewX(-20deg);
+            animation: shine 3s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes shine {
+            0% { left: -50%; }
+            100% { left: 150%; }
         }
     </style>
 @endpush
@@ -757,19 +770,11 @@
                                 const widgetContent = $(item.el).find('.grid-stack-item-content');
                                 widgetContent.html('<div class="widget-wrapper">' + response.html + '</div>');
                                 
-                                // Initialize components that require post-DOM injection logic
-                                if (response.widget.type === 'chart') {
-                                    createChart(response.widget);
-                                } else if (response.widget.type === 'gauge') {
-                                    if (window.updateGaugeModern) {
-                                        window.updateGaugeModern(
-                                            response.widget.key, 
-                                            response.widget.value, 
-                                            response.widget.min, 
-                                            response.widget.max
-                                        );
-                                    }
-                                }
+                                // Initialize any plugins for the new widget (e.g., Charts)
+                                // This is simplified; for charts we might need a separate init trigger
+                                
+                                // Initialize any plugins for the new widget (e.g., Charts)
+                                // This is simplified; for charts we might need a separate init trigger
                             }
                         })
                         .fail(function(xhr) {
@@ -980,19 +985,15 @@
 
                 const client = window.mqttClient;
 
+                // Override/Add listeners to the global client
                 client.onConnect = () => {
                     console.log('✅ Connected to HiveMQ Cloud');
                     
-                    // Subscribe to sensors (confirmed state feedback from device)
+                    // Subscribe STRICTLY to sensors (confirmed state feedback from device)
+                    // We NEVER subscribe to /control/ on the dashboard to avoid loops
                     const sensorTopic = `users/${userId}/devices/${deviceCode}/sensors/#`;
                     client.subscribe(sensorTopic, (topic, payload) => {
                         handleSensorMessage(topic, payload);
-                    });
-                    
-                    // Subscribe to control (real-time sync between multiple clients/browsers)
-                    const controlTopic = `users/${userId}/devices/${deviceCode}/control/#`;
-                    client.subscribe(controlTopic, (topic, payload) => {
-                        handleControlMessage(topic, payload);
                     });
                     
                     // Device connectivity status
@@ -1006,11 +1007,10 @@
                 client.onMessage = (topic, message) => {
                     if (topic.includes('/sensors/')) {
                         handleSensorMessage(topic, message);
-                    } else if (topic.includes('/control/')) {
-                        handleControlMessage(topic, message);
                     } else if (topic.endsWith('/status')) {
                         handleStatusMessage(message);
                     }
+                    // /control/ is explicitly ignored here
                 };
 
             } else {
@@ -1380,22 +1380,8 @@
                 $('#noScheduleMsg').show();
             }
 
-            // Open modal — Bootstrap 4 jQuery API
-            // Bersihkan orphan backdrop dulu (cegah "ghost modal")
-            $('.modal-backdrop').remove();
-            $('body').removeClass('modal-open').css({ overflow: '', paddingRight: '' });
-
-            // Disable grid pointer-events agar widget cards tidak menghalangi modal
-            $('body').addClass('modal-widget-open');
-
             $('#editWidgetModal').modal('show');
-
-            // Hapus class saat modal ditutup
-            $('#editWidgetModal').off('hidden.bs.modal').on('hidden.bs.modal', function () {
-                $('body').removeClass('modal-widget-open');
-            });
         }
-
 
         function addScheduleRow(data = null) {
             const container = $('#scheduleContainer');
@@ -1554,59 +1540,6 @@
         window.deleteWidget = deleteWidget;
         window.editWidget = editWidget;
         window.addScheduleRow = addScheduleRow;
-
-        // ============================================================
-        // SCHEDULE RUNNER (client-side, berjalan tiap 30 detik)
-        // Membaca widget.config.schedules dari widgetRegistry dan
-        // mempublish MQTT pada waktu yang tepat.
-        // ============================================================
-        const _scheduleFired = {};
-
-        function runSchedules() {
-            const now = new Date();
-            // Format HH:MM (sesuai PHP date('H:i'))
-            const hhmm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-            const todayDay = now.getDay(); // 0=Sun..6=Sat
-
-            Object.values(widgetRegistry).forEach(widget => {
-                const schedules = widget.config?.schedules;
-                if (!Array.isArray(schedules) || schedules.length === 0) return;
-
-                schedules.forEach((sched, idx) => {
-                    if (!sched.enabled || sched.enabled === '0' || sched.enabled === false) return;
-
-                    // Cocokkan waktu
-                    const schedTime = sched.time ? sched.time.substring(0,5) : '';
-                    if (schedTime !== hhmm) return;
-
-                    // Cocokkan hari (array berisi string '0'-'6')
-                    if (Array.isArray(sched.days) && sched.days.length > 0) {
-                        if (!sched.days.includes(String(todayDay))) return;
-                    }
-
-                    // Hindari double-fire dalam menit yang sama
-                    const fireId = `${widget.key}_${idx}_${hhmm}`;
-                    if (_scheduleFired[fireId]) return;
-                    _scheduleFired[fireId] = true;
-
-                    // Bersihkan token lama (max 200)
-                    const keys = Object.keys(_scheduleFired);
-                    if (keys.length > 200) delete _scheduleFired[keys[0]];
-
-                    const value = String(sched.value ?? '0');
-                    console.log(`⏰ Schedule fired: ${widget.key} → ${value} (${hhmm})`);
-
-                    // Publish lewat MQTT (dan fallback DB update)
-                    updateWidgetValue(widget.key, value, true);
-                    updateWidgetUI(widget.key, value, widget.type);
-                    showNotification(`⏰ Schedule: ${widget.name || widget.key} → ${value === '1' ? 'ON' : 'OFF'}`, 'success');
-                });
-            });
-        }
-
-        // Jalankan setiap 30 detik (presisi ±30 detik, cukup untuk schedule per-menit)
-        setInterval(runSchedules, 30000);
-        runSchedules(); // Jalankan sekali saat load
         // LSTM Toggle Logic
         function toggleLstm(deviceCode) {
             const btn = document.getElementById('toggleLstmBtn');

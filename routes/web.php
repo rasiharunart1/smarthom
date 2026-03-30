@@ -20,6 +20,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('devices', DeviceController::class);
     Route::post('/devices/{device}/regenerate-code', [DeviceController::class, 'regenerateCode'])->name('devices.regenerate-code');
     
+    // LSTM / AI Routes
+    Route::post('/devices/{device}/lstm/toggle', [\App\Http\Controllers\LstmController::class, 'toggle'])->name('devices.lstm.toggle');
+
     // Widget Routes
     Route::get('/devices/{device}/widgets', [WidgetController::class, 'index'])->name('widgets.index');
     Route::post('/devices/{device}/widgets', [WidgetController::class, 'store'])->name('widgets.store');

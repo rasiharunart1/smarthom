@@ -29,7 +29,11 @@ class AdminUserController extends Controller
             'role' => 'required|in:user,admin',
             'subscription_plan' => 'required|exists:plans,slug',
             'subscription_expires_at' => 'nullable|date',
+            'lstm_allowed' => 'nullable|boolean',
         ]);
+
+        // Fix checkbox handling (if unchecked, it's missing from request, so default to 0)
+        $validated['lstm_allowed'] = $request->has('lstm_allowed');
 
         $user->update($validated);
 

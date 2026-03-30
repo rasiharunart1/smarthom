@@ -17,11 +17,15 @@ class Device extends Model
         'status',
         'last_seen_at',
         'metadata',
+        'lstm_enabled',
+        'lstm_config',
     ];
 
     protected $casts = [
         'metadata' => 'array',
         'last_seen_at' => 'datetime',
+        'lstm_enabled' => 'boolean',
+        'lstm_config' => 'array',
     ];
 
     public function getRouteKeyName()
@@ -187,4 +191,26 @@ class Device extends Model
         ];
     }
 
+
+
+    /**
+     * Check if LSTM is currently enabled/active
+     */
+    public function isLstmActive(): bool
+    {
+        return (bool) $this->lstm_enabled;
+    }
+
+    /**
+     * Get LSTM Configuration
+     */
+    public function getLstmConfig()
+    {
+        return $this->lstm_config ?? [
+            'sensor_key' => 'soil_moisture',
+            'actuator_key' => 'lamp_1',
+            'threshold_low' => 30,
+            'threshold_high' => 80
+        ];
+    }
 }

@@ -50,6 +50,12 @@
                                         <span class="small" style="color: {{ $user->isSubscribed() ? 'var(--primary-green-light)' : '#f87171' }}; font-weight: 600;">
                                             {{ strtoupper($user->subscription_plan) }}
                                         </span>
+                                        @if($user->subscription_expires_at)
+                                            <div class="ml-2 small text-muted" style="font-size: 0.7rem;">Exp: {{ $user->subscription_expires_at->format('M d, Y') }}</div>
+                                        @endif
+                                        @if($user->lstm_allowed)
+                                            <span class="badge ml-2" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3);">AI</span>
+                                        @endif
                                     </div>
                                 </td>
                                 <td class="py-4 align-middle text-center">

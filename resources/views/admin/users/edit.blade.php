@@ -60,6 +60,17 @@
                                    value="{{ $user->subscription_expires_at ? $user->subscription_expires_at->format('Y-m-d\TH:i') : '' }}">
                         </div>
 
+                        <div class="mb-4">
+                             <label class="glass-label">Advanced Features</label>
+                             <div class="custom-control custom-switch">
+                                 <input type="checkbox" class="custom-control-input" id="lstmAllowed" name="lstm_allowed" value="1" {{ $user->lstm_allowed ? 'checked' : '' }}>
+                                 <label class="custom-control-label text-white" for="lstmAllowed">
+                                     Enable AI / LSTM Control Features
+                                     <small class="d-block text-muted">Allows this user to access advanced predictive control features.</small>
+                                 </label>
+                             </div>
+                        </div>
+
                         <div class="pt-3 border-top" style="border-color: rgba(255,255,255,0.1) !important;">
                             <button type="submit" class="btn glass-button glass-button-primary" style="width: auto;">
                                 Apply Global Override

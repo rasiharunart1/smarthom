@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name') }} - @yield('title', 'Dashboard')</title>
-    <link rel="icon" type="image/png" href="{{ asset('favicon.ico') }}">
+
     <!-- CSS - Bootstrap 4 -->
     <link href="{{ asset('assets/css/sb-admin-2.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
@@ -21,15 +21,15 @@
             --primary-green: #10b981;
             --primary-green-dark: #059669;
             --primary-green-light: #34d399;
-            --dark-bg-1: #050B14;
-            --dark-bg-2: #0d1526;
-            --dark-bg-3: #0f172a;
-            --dark-surface: rgba(15, 23, 42, 0.6);
-            --glass-bg: rgba(255, 255, 255, 0.04);
+            --dark-bg-1: #0a0e27;
+            --dark-bg-2: #151b3d;
+            --dark-bg-3: #1e2749;
+            --dark-surface: rgba(30, 39, 73, 0.6);
+            --glass-bg: rgba(255, 255, 255, 0.05);
             --glass-border: rgba(255, 255, 255, 0.1);
             --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --text-secondary: #a0aec0;
+            --text-muted: #718096;
             --radius-sm: 8px;
             --radius-md: 12px;
             --radius-lg: 16px;
@@ -42,12 +42,19 @@
         }
 
         body {
-            background-color: #050B14;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
             background-attachment: fixed;
             color: var(--text-primary);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         /* Remove default wrapper */
@@ -66,7 +73,7 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: rgba(5, 11, 20, 0.88);
+            background: rgba(10, 14, 39, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -181,7 +188,7 @@
             left: 0;
             width: var(--sidebar-width);
             height: calc(100vh - var(--topbar-height));
-            background: rgba(5, 11, 20, 0.92);
+            background: rgba(10, 14, 39, 0.92);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-right: 1px solid rgba(255, 255, 255, 0.07);
@@ -454,7 +461,7 @@
 
         /* Dropdown Menu */
         .dropdown-menu-glass {
-            background: rgba(5, 11, 20, 0.96);
+            background: rgba(10, 14, 39, 0.95);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
@@ -516,12 +523,12 @@
         }
 
         .glass-modal-content {
-            background: rgba(5, 11, 20, 0.90);
+            background: rgba(10, 14, 39, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         .glass-input, .form-control, select.form-control, textarea.form-control {
@@ -924,7 +931,7 @@
 
         /* General Modal fixes */
         .modal-content {
-            background: rgba(5, 11, 20, 0.96);
+            background: rgba(15, 21, 49, 0.95);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 20px;
@@ -1103,7 +1110,7 @@
 
         /* Footer */
         .sticky-footer {
-            background: rgba(5, 11, 20, 0.7);
+            background: rgba(10, 14, 39, 0.6);
             backdrop-filter: blur(20px);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             padding: 1rem 0;
@@ -1167,7 +1174,7 @@
 
         /* SweetAlert2 Glassmorphism Customization */
         .swal2-popup {
-            background: rgba(5, 11, 20, 0.93) !important;
+            background: rgba(15, 21, 49, 0.85) !important;
             backdrop-filter: blur(20px) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 24px !important;
@@ -1198,11 +1205,18 @@
     <style>
         /* FORCE DARK BACKGROUND - Priority Override */
         body, html {
-            background-color: #050B14 !important;
-            background-image: none !important;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%) !important;
+            background-size: 400% 400% !important;
+            animation: gradientShift 15s ease infinite !important;
             background-attachment: fixed !important;
             margin: 0 !important;
             padding: 0 !important;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         #page-top, #wrapper, #content-wrapper, #content {
@@ -1213,12 +1227,8 @@
     @stack('styles')
 </head>
 
-<body style="background-color: #050B14;">
-    <!-- Ambient Background Glows (matching login page) -->
-    <div style="position:fixed;top:-15%;left:-10%;width:50%;height:50%;background:rgba(16,185,129,0.18);border-radius:50%;filter:blur(140px);pointer-events:none;mix-blend-mode:screen;animation:pulse 4s ease-in-out infinite;z-index:0;"></div>
-    <div style="position:fixed;bottom:-15%;right:-10%;width:60%;height:60%;background:rgba(37,99,235,0.18);border-radius:50%;filter:blur(150px);pointer-events:none;mix-blend-mode:screen;z-index:0;"></div>
-    <div style="position:fixed;top:20%;right:15%;width:30%;height:30%;background:rgba(20,184,166,0.09);border-radius:50%;filter:blur(100px);pointer-events:none;mix-blend-mode:screen;z-index:0;"></div>
-    <div id="wrapper" style="display:flex; flex-direction:column; min-height:100vh; position:relative; z-index:1;">
+<body style="background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%); background-size: 400% 400%; animation: gradientShift 15s ease infinite; background-attachment: fixed;">
+    <div id="wrapper" style="display:flex; flex-direction:column; min-height:100vh;">
 
         <!-- ========== TOP HEADER ========== -->
         <nav class="topbar-glass">

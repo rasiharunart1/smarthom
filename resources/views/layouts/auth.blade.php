@@ -26,12 +26,11 @@
         }
 
         body {
-            background-color: #050B14;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
             background-attachment: fixed;
             color: var(--text-primary);
             min-height: 100vh;
             font-family: 'Figtree', sans-serif;
-            overflow: hidden;
         }
 
         .auth-wrapper {
@@ -58,12 +57,12 @@
         }
 
         .glass-card {
-            background: rgba(15, 23, 42, 0.45);
+            background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             padding: 2.5rem;
             width: 100%;
             max-width: 450px;
@@ -176,11 +175,7 @@
     </style>
 </head>
 <body>
-    <!-- Ambient Background Glows -->
-    <div style="position:fixed;top:-15%;left:-10%;width:50%;height:50%;background:rgba(16,185,129,0.18);border-radius:50%;filter:blur(140px);pointer-events:none;z-index:0;"></div>
-    <div style="position:fixed;bottom:-15%;right:-10%;width:60%;height:60%;background:rgba(37,99,235,0.18);border-radius:50%;filter:blur(150px);pointer-events:none;z-index:0;"></div>
-    <div style="position:fixed;top:20%;right:15%;width:30%;height:30%;background:rgba(20,184,166,0.09);border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0;"></div>
-    <div class="auth-wrapper" style="position:relative;z-index:1;">
+    <div class="auth-wrapper">
         <div class="brand-logo" style="background: transparent; box-shadow: none;">
             <img src="{{ asset('assets/img/logo_tewe.png') }}" alt="Tewe.io Logo" style="width: 100%; height: 100%; object-fit: contain;">
         </div>

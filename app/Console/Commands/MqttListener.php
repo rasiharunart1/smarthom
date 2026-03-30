@@ -191,13 +191,17 @@ class MqttListener extends Command
             'timestamp' => now()->timestamp
         ], 60);
 
-        DeviceLog::create([
-            'device_id' => $device->id,
-            'widget_key' => $widgetKey,
-            'event_type' => $direction === 'control' ? 'control' : 'telemetry',
-            'new_value' => (string)$newValue,
-            'source' => 'mqtt'
-        ]);
+        if (!$device->isLstmActive()) {
+
+            DeviceLog::create([
+                'device_id' => $device->id,
+                'widget_key' => $widgetKey,
+                'event_type' => $direction === 'control' ? 'control' : 'telemetry',
+                'new_value' => (string)$newValue,
+                'source' => 'mqtt'
+            ]);
+
+        }
 
         $this->info("✅ {$widgetKey} -> {$newValue}");
     }

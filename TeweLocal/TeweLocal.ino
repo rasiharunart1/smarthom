@@ -3,52 +3,23 @@
 // ============================================================
 // Control relay via browser (local WiFi, no internet required).
 // Auto-sync to cloud when internet available.
-// I/O expansion via PCF8574 (8-channel I2C relay expander).
-// Status display via Adafruit SSD1306 OLED 128x64.
+// Based on proven esp8266_toggle_https.ino pattern.
 //
 // Dependencies:
 //   - ESPAsyncTCP          by dvarrel
 //   - ESPAsyncWebServer    by lacamera
 //   - ArduinoJson          by Benoit Blanchon (v7.x)
 //   - PubSubClient         by Nick O'Leary
-//   - Adafruit PCF8574     by Adafruit
-//   - Adafruit SSD1306     by Adafruit
-//   - Adafruit GFX Library by Adafruit
 // ============================================================
 
 #include <ArduinoJson.h>
-#include <EEPROM.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 #include <WiFiClientSecureBearSSL.h>
-#include <Wire.h>
-#include <Adafruit_PCF8574.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
-// ================= PCF8574 I2C EXPANDER =================
-// Wiring: SDA=D2(GPIO4), SCL=D1(GPIO5)
-// A0/A1/A2 = GND → alamat 0x20
-// Ganti alamat jika A0/A1/A2 berbeda (0x21, 0x22, ...)
-#define PCF8574_ADDRESS 0x20
-#define I2C_SDA         4
-#define I2C_SCL         5
-// true  = relay ACTIVE LOW  (modul relay biasa)
-// false = relay ACTIVE HIGH
-#define RELAY_ACTIVE_LOW true
-
-Adafruit_PCF8574 pcf;
-bool pcfFound = false;
-
-// ================= OLED SSD1306 128x64 =================
-#define SCREEN_WIDTH  128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET    -1
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-bool oledFound = false;
+#include <EEPROM.h>
 
 // ================= CONFIG & EEPROM =================
 struct EepromConfig {
@@ -70,8 +41,7 @@ void loadConfig() {
   EEPROM.begin(512);
   EEPROM.get(0, cfg);
   if (cfg.magic != 0x54455747) { // "TEW7" formats to store local config
-    Serial.println(
-        F("⚠ No valid EEPROM config found. Formatting with defaults."));
+    Serial.println(F("⚠ No valid EEPROM config found. Formatting with defaults."));
     cfg.magic = 0x54455747;
     cfg.ssid[0] = '\0';
     cfg.pass[0] = '\0';
@@ -112,20 +82,14 @@ void publishWidgetState(int i);
 void broadcastWS(const char *key, const char *value);
 void queueAPISync(const String &key, const String &value);
 
-// ================= PIN MAP (PCF8574 P0..P7) =================
+// ================= PIN MAP =================
 struct PinMap {
   const char *key;
-  int8_t pin; // PCF8574 pin: P0=0 .. P7=7
+  int pin;
 };
 PinMap pinMap[] = {
-    {"toggle1", 0}, // PCF8574 P0 → Relay 1
-    {"toggle2", 1}, // PCF8574 P1 → Relay 2
-    {"toggle3", 2}, // PCF8574 P2 → Relay 3
-    {"toggle4", 3}, // PCF8574 P3 → Relay 4
-    {"toggle5", 4}, // PCF8574 P4 → Relay 5
-    {"toggle6", 5}, // PCF8574 P5 → Relay 6
-    {"toggle7", 6}, // PCF8574 P6 → Relay 7
-    {"toggle8", 7}, // PCF8574 P7 → Relay 8
+    {"toggle1", 5}, // D1 (GPIO5)
+    {"toggle2", 4}, // D2 (GPIO4)
 };
 const int PIN_MAP_SIZE = sizeof(pinMap) / sizeof(pinMap[0]);
 
@@ -181,8 +145,7 @@ void flushAPISyncQueue() {
   for (int i = 0; i < syncQueueCount; i++) {
     HTTPClient http;
     httpsClient.setInsecure();
-    String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets/" +
-                 syncQueue[i].key;
+    String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets/" + syncQueue[i].key;
     http.begin(httpsClient, url);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     http.setTimeout(5000);
@@ -198,7 +161,9 @@ void flushAPISyncQueue() {
 }
 
 // Helper: check if string is valid (not null, not empty, not "null")
-bool isValidStr(const String &s) { return s.length() > 0 && s != "null"; }
+bool isValidStr(const String &s) {
+  return s.length() > 0 && s != "null";
+}
 
 // ============================================================
 // WIFI
@@ -255,8 +220,7 @@ bool authenticate() {
 
   JsonDocument doc;
   // Zero-copy parsing: casting to mutable char* saves RAM
-  DeserializationError error =
-      deserializeJson(doc, const_cast<char *>(resp.c_str()));
+  DeserializationError error = deserializeJson(doc, const_cast<char*>(resp.c_str()));
   if (error) {
     Serial.print("  Auth deserialize gagal: ");
     Serial.println(error.c_str());
@@ -273,15 +237,12 @@ bool authenticate() {
   Serial.printf("  userId=%d mqtt=%s:%d\n", userId, mqttHost.c_str(), mqttPort);
   http.end();
   httpsClient.stop(); // FORCE CLOSE to prevent socket reuse bugs
-  delay(500);         // Beri waktu BearSSL reset sebelum koneksi berikutnya
 
   // Validate MQTT credentials
-  mqttCredsValid =
-      isValidStr(mqttHost) && isValidStr(mqttUser) && isValidStr(mqttPass);
+  mqttCredsValid = isValidStr(mqttHost) && isValidStr(mqttUser) && isValidStr(mqttPass);
   if (!mqttCredsValid) {
     Serial.println(F("  ⚠ MQTT credentials null/kosong dari server!"));
-    Serial.println(
-        F("  → Cek MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD di .env server"));
+    Serial.println(F("  → Cek MQTT_HOST, MQTT_USERNAME, MQTT_PASSWORD di .env server"));
     Serial.println(F("  → Firmware tetap jalan dalam mode lokal (tanpa MQTT)"));
   }
 
@@ -292,122 +253,95 @@ bool authenticate() {
 
 // ============================================================
 // FETCH WIDGETS
-// Menggunakan BearSSL client BARU (lokal) agar tidak terkena
-// reuse-bug setelah httpsClient.stop() di authenticate().
-// getString() dipakai menggantikan stream parsing agar lebih
-// stabil di ESP8266 dengan respons HTTPS besar.
 // ============================================================
 bool fetchWidgets() {
   Serial.println(F("📋 Fetching widgets..."));
-
-  // Client baru — tidak sharing state dengan httpsClient di authenticate()
-  BearSSL::WiFiClientSecure fetchClient;
-  fetchClient.setInsecure();
-
   HTTPClient http;
+  httpsClient.setInsecure();
+
   String url = String(cfg.api) + "/" + String(cfg.dev) + "/widgets?lite=1";
   Serial.println("  URL: " + url);
+  http.begin(httpsClient, url);
 
-  // Retry sampai 3 kali
-  int code = -1;
-  for (int attempt = 1; attempt <= 3 && code != 200; attempt++) {
-    if (attempt > 1) {
-      Serial.printf("  Retry %d/3...\n", attempt);
-      fetchClient.stop();
-      delay(1000);
-    }
-    if (!http.begin(fetchClient, url)) {
-      Serial.println("  http.begin() gagal");
-      continue;
-    }
-    http.setTimeout(10000);
-    code = http.GET();
-    Serial.printf("  HTTP %d (heap=%d)\n", code, ESP.getFreeHeap());
-    if (code != 200) {
-      http.end();
-    }
-  }
-
+  int code = http.GET();
   if (code != 200) {
-    Serial.println("  ❌ Fetch gagal setelah 3 percobaan");
-    fetchClient.stop();
+    Serial.println("  Fetch gagal: HTTP " + String(code));
+    http.end();
+    httpsClient.stop();
     return false;
   }
 
-  // Baca response sebagai String (lebih stabil daripada stream di BearSSL)
-  String raw = http.getString();
-  http.end();
-  fetchClient.stop();
+  JsonDocument filter;
+  filter["widgets"]["*"]["type"] = true;
+  filter["widgets"]["*"]["name"] = true;
+  filter["widgets"]["*"]["value"] = true;
+  filter["widgets"]["*"]["config"]["unit"] = true;
 
-  Serial.printf("  Resp len=%d heap=%d\n", raw.length(), ESP.getFreeHeap());
-
-  // Parse JSON dengan filter agar cukup RAM
-  StaticJsonDocument<256> filter;
-  filter["widgets"][0]["type"] = true;
-  filter["widgets"][0]["name"] = true;
-  filter["widgets"][0]["value"] = true;
-
-  // Gunakan DynamicJsonDocument secukupnya (hindari alokasi berlebihan)
-  DynamicJsonDocument doc(4096);
-  DeserializationError error = deserializeJson(doc, raw);
+  JsonDocument doc;
+  // STREAM PARSING: Read directly from socket. Saves massive RAM by bypassing http.getString()
+  DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
   if (error) {
-    Serial.print("  ❌ JSON gagal: ");
+    Serial.print("  Fetch deserialize gagal: ");
     Serial.println(error.c_str());
+    http.end();
+    httpsClient.stop();
     return false;
   }
 
+  String base = "users/" + String(userId) + "/devices/" + String(cfg.dev);
   JsonObject widgets = doc["widgets"].as<JsonObject>();
-  if (widgets.isNull()) {
-    Serial.println("  ❌ Kunci 'widgets' tidak ditemukan");
-    return false;
-  }
+  
+  http.end();
+  httpsClient.stop();
 
   widgetCount = 0;
   for (JsonPair kv : widgets) {
-    if (widgetCount >= MAX_WIDGETS) break;
+    String key = kv.key().c_str();
+    String type = kv.value()["type"].as<String>();
+
+    if (widgetCount >= MAX_WIDGETS)
+      break;
 
     LocalWidget &w = localWidgets[widgetCount];
-    w.key   = kv.key().c_str();
-    w.type  = kv.value()["type"].as<String>();
-    w.name  = kv.value()["name"].as<String>();
+    w.key = key;
+    w.type = type;
+    w.name = kv.value()["name"].as<String>();
     w.value = kv.value()["value"].as<String>();
-    w.unit  = "";
-    w.pin   = -1;
+    w.unit = kv.value()["config"]["unit"] | "";
+    w.pin = -1;
 
     if (w.type == "toggle") {
       for (int p = 0; p < PIN_MAP_SIZE; p++) {
-        if (w.key == pinMap[p].key) {
+        if (key == pinMap[p].key) {
           w.pin = pinMap[p].pin;
+          pinMode(w.pin, OUTPUT);
           break;
         }
       }
     }
 
-    Serial.printf("  [%d] %-8s type=%-6s pin=%d val=%s\n",
-                  widgetCount, w.key.c_str(), w.type.c_str(), w.pin, w.value.c_str());
+    Serial.printf("  [%d] %s (type=%s) pin=%d val=%s\n", widgetCount, key.c_str(), w.type.c_str(), w.pin, w.value.c_str());
     widgetCount++;
   }
 
-  Serial.println("  ✅ Loaded " + String(widgetCount) + " widgets");
+  Serial.println("  Loaded " + String(widgetCount) + " widgets");
+  http.end();
   return true;
 }
 
 // ============================================================
-// PIN CONTROL (via PCF8574)
+// PIN CONTROL
 // ============================================================
 void applyPin(LocalWidget &w) {
-  if (!pcfFound || w.pin < 0 || w.type != "toggle") return;
-  bool state = (w.value == "1" || w.value == "true");
-  bool level = RELAY_ACTIVE_LOW ? !state : state;
-  pcf.digitalWrite(w.pin, level ? HIGH : LOW);
-  Serial.printf("  PCF P%d [%s] → %s\n", w.pin, w.key.c_str(), state ? "ON" : "OFF");
+  if (w.pin < 0 || w.type != "toggle")
+    return;
+  digitalWrite(w.pin, (w.value == "1" || w.value == "true") ? LOW : HIGH); // Active LOW relay
 }
 
 void publishWidgetState(int i) {
   if (!mqtt.connected())
     return;
-  String topic = "users/" + String(userId) + "/devices/" + String(cfg.dev) +
-                 "/sensors/" + localWidgets[i].key;
+  String topic = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/sensors/" + localWidgets[i].key;
   mqtt.publish(topic.c_str(), localWidgets[i].value.c_str(), true);
 }
 
@@ -468,8 +402,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
     msg += (char)payload[i];
 
   String topicStr = String(topic);
-  String baseCtrl =
-      "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+  String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
 
   for (int i = 0; i < widgetCount; i++) {
     if (localWidgets[i].type == "toggle") {
@@ -487,41 +420,37 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
 bool isMqttSetup = false;
 
 void setupMQTT() {
-  if (isMqttSetup)
-    return;
-
+  if (isMqttSetup) return;
+  
   Serial.println(F("⚙️ Setting up MQTT client..."));
   mqttSecure.setInsecure();
   // Limit memory usage for TLS
-  mqttSecure.setBufferSizes(1024, 512);
-
+  mqttSecure.setBufferSizes(1024, 512); 
+  
   mqtt.setServer(mqttHost.c_str(), mqttPort);
   mqtt.setCallback(mqttCallback);
   mqtt.setBufferSize(512);
   mqtt.setKeepAlive(30);
-
+  
   isMqttSetup = true;
 }
 
 void connectMQTT() {
-  if (!isMqttSetup)
-    setupMQTT();
+  if (!isMqttSetup) setupMQTT();
 
   Serial.printf("MQTT → %s:%d user=%s heap=%d\n", mqttHost.c_str(), mqttPort,
                 mqttUser.c_str(), ESP.getFreeHeap());
 
   String cid = "TeweLocal-" + String(cfg.dev) + "-" + String(millis() % 10000);
-
+  
   // Ensure connection is fully closed before retrying
-  if (mqtt.connected())
-    mqtt.disconnect();
+  if (mqtt.connected()) mqtt.disconnect();
   mqttSecure.stop();
   delay(10);
-
+  
   if (mqtt.connect(cid.c_str(), mqttUser.c_str(), mqttPass.c_str())) {
     Serial.println(F("📡 MQTT connected!"));
-    String baseCtrl =
-        "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
+    String baseCtrl = "users/" + String(userId) + "/devices/" + String(cfg.dev) + "/control/";
     for (int i = 0; i < widgetCount; i++) {
       if (localWidgets[i].type == "toggle") {
         mqtt.subscribe((baseCtrl + localWidgets[i].key).c_str(), 1);
@@ -594,16 +523,14 @@ void onWsEvent(AsyncWebSocket *s, AsyncWebSocketClient *client,
 #include "login_html.h"
 
 bool isAuthenticated(AsyncWebServerRequest *request) {
-  if (strlen(cfg.session) == 0)
-    return false;
+  if (strlen(cfg.session) == 0) return false;
   if (request->hasHeader("Cookie")) {
     String cookie = request->header("Cookie");
     int idx = cookie.indexOf("tewe_sess=");
     if (idx != -1) {
       String sess = cookie.substring(idx + 10);
       int endIdx = sess.indexOf(';');
-      if (endIdx != -1)
-        sess = sess.substring(0, endIdx);
+      if (endIdx != -1) sess = sess.substring(0, endIdx);
       sess.trim();
       return (sess == String(cfg.session));
     }
@@ -623,18 +550,12 @@ void setupWebServer() {
 
   // REST API
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) {
-      r->send(401);
-      return;
-    }
+    if (!isAuthenticated(r)) { r->send(401); return; }
     r->send(200, "application/json", buildInitJson());
   });
 
   server.on("/api/toggle", HTTP_POST, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) {
-      r->send(401);
-      return;
-    }
+    if (!isAuthenticated(r)) { r->send(401); return; }
     if (!r->hasParam("key", true)) {
       r->send(400);
       return;
@@ -647,8 +568,7 @@ void setupWebServer() {
         broadcastWS(key.c_str(), localWidgets[i].value.c_str());
         if (mqtt.connected())
           publishWidgetState(i);
-        r->send(200, "application/json",
-                "{\"ok\":true,\"value\":\"" + localWidgets[i].value + "\"}");
+        r->send(200, "application/json", "{\"ok\":true,\"value\":\"" + localWidgets[i].value + "\"}");
         return;
       }
     }
@@ -656,10 +576,7 @@ void setupWebServer() {
   });
 
   server.on("/api/scan", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) {
-      r->send(401);
-      return;
-    }
+    if (!isAuthenticated(r)) { r->send(401); return; }
     int n = WiFi.scanNetworks();
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
@@ -674,31 +591,13 @@ void setupWebServer() {
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *r) {
-    if (!isAuthenticated(r)) {
-      r->send(401);
-      return;
-    }
-    if (r->hasParam("ssid", true))
-      strlcpy(cfg.ssid, r->getParam("ssid", true)->value().c_str(),
-              sizeof(cfg.ssid));
-    if (r->hasParam("pass", true) &&
-        r->getParam("pass", true)->value().length() > 0)
-      strlcpy(cfg.pass, r->getParam("pass", true)->value().c_str(),
-              sizeof(cfg.pass));
-    if (r->hasParam("api", true))
-      strlcpy(cfg.api, r->getParam("api", true)->value().c_str(),
-              sizeof(cfg.api));
-    if (r->hasParam("dev", true))
-      strlcpy(cfg.dev, r->getParam("dev", true)->value().c_str(),
-              sizeof(cfg.dev));
-    if (r->hasParam("a_usr", true) &&
-        r->getParam("a_usr", true)->value().length() > 0)
-      strlcpy(cfg.auth_user, r->getParam("a_usr", true)->value().c_str(),
-              sizeof(cfg.auth_user));
-    if (r->hasParam("a_pwd", true) &&
-        r->getParam("a_pwd", true)->value().length() > 0)
-      strlcpy(cfg.auth_pass, r->getParam("a_pwd", true)->value().c_str(),
-              sizeof(cfg.auth_pass));
+    if (!isAuthenticated(r)) { r->send(401); return; }
+    if (r->hasParam("ssid", true)) strlcpy(cfg.ssid, r->getParam("ssid", true)->value().c_str(), sizeof(cfg.ssid));
+    if (r->hasParam("pass", true) && r->getParam("pass", true)->value().length() > 0) strlcpy(cfg.pass, r->getParam("pass", true)->value().c_str(), sizeof(cfg.pass));
+    if (r->hasParam("api", true)) strlcpy(cfg.api, r->getParam("api", true)->value().c_str(), sizeof(cfg.api));
+    if (r->hasParam("dev", true)) strlcpy(cfg.dev, r->getParam("dev", true)->value().c_str(), sizeof(cfg.dev));
+    if (r->hasParam("a_usr", true) && r->getParam("a_usr", true)->value().length() > 0) strlcpy(cfg.auth_user, r->getParam("a_usr", true)->value().c_str(), sizeof(cfg.auth_user));
+    if (r->hasParam("a_pwd", true) && r->getParam("a_pwd", true)->value().length() > 0) strlcpy(cfg.auth_pass, r->getParam("a_pwd", true)->value().c_str(), sizeof(cfg.auth_pass));
     saveConfig();
     r->send(200, "text/plain", "OK");
     delay(500);
@@ -707,27 +606,24 @@ void setupWebServer() {
 
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest *r) {
     if (!r->hasParam("user", true) || !r->hasParam("pass", true)) {
-      r->send(400);
-      return;
+      r->send(400); return;
     }
     String user = r->getParam("user", true)->value();
     String pass = r->getParam("pass", true)->value();
-    bool rem =
-        r->hasParam("rem", true) && r->getParam("rem", true)->value() == "1";
+    bool rem = r->hasParam("rem", true) && r->getParam("rem", true)->value() == "1";
 
     if (user == String(cfg.auth_user) && pass == String(cfg.auth_pass)) {
       // Generate new session token
       String token = "";
-      for (int i = 0; i < 32; i++) {
-        token += String(random(0, 16), HEX);
+      for (int i=0; i<32; i++) {
+        token += String(random(0,16), HEX);
       }
       strlcpy(cfg.session, token.c_str(), sizeof(cfg.session));
       saveConfig();
-
+      
       AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
       String cookie = "tewe_sess=" + token + "; Path=/; HttpOnly";
-      if (rem)
-        cookie += "; Max-Age=2592000"; // 30 days
+      if (rem) cookie += "; Max-Age=2592000"; // 30 days
       resp->addHeader("Set-Cookie", cookie);
       r->send(resp);
     } else {
@@ -739,26 +635,20 @@ void setupWebServer() {
     cfg.session[0] = '\0';
     saveConfig();
     AsyncWebServerResponse *resp = r->beginResponse(200, "text/plain", "OK");
-    resp->addHeader(
-        "Set-Cookie",
-        "tewe_sess=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
+    resp->addHeader("Set-Cookie", "tewe_sess=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
     r->send(resp);
   });
 
   // Dashboard (embedded HTML — no LittleFS needed!)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
-    if (isAuthenticated(r))
-      r->send_P(200, "text/html", DASHBOARD_HTML);
-    else
-      r->send_P(200, "text/html", LOGIN_HTML);
+    if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
+    else r->send_P(200, "text/html", LOGIN_HTML);
   });
 
   server.onNotFound([](AsyncWebServerRequest *r) {
     if (r->url() == "/index.html") {
-      if (isAuthenticated(r))
-        r->send_P(200, "text/html", DASHBOARD_HTML);
-      else
-        r->send_P(200, "text/html", LOGIN_HTML);
+      if (isAuthenticated(r)) r->send_P(200, "text/html", DASHBOARD_HTML);
+      else r->send_P(200, "text/html", LOGIN_HTML);
     } else {
       r->send(404, "text/plain", "Not Found");
     }
@@ -782,75 +672,6 @@ bool checkInternet() {
 }
 
 // ============================================================
-// OLED DISPLAY
-// ============================================================
-unsigned long lastOledUpdate = 0;
-
-void updateOLED() {
-  if (!oledFound) return;
-  display.clearDisplay();
-
-  // ── Baris 1: Logo ──────────────────────────────────────
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print(F("TeweLocal"));
-
-  // ── Status badge (kanan atas) ──────────────────────────
-  String statusStr;
-  if (mqtt.connected())        statusStr = F("SYNCED");
-  else if (hasInternet)        statusStr = F("ONLINE");
-  else if (WiFi.status() == WL_CONNECTED) statusStr = F("LOCAL");
-  else                         statusStr = F("AP-ONLY");
-
-  int16_t sx, sy; uint16_t sw, sh;
-  display.getTextBounds(statusStr, 0, 0, &sx, &sy, &sw, &sh);
-  display.setCursor(SCREEN_WIDTH - sw, 0);
-  display.print(statusStr);
-
-  // ── Garis separator ────────────────────────────────────
-  display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
-
-  // ── Baris 2: IP STA / AP ───────────────────────────────
-  display.setCursor(0, 14);
-  display.print(F("STA: "));
-  if (WiFi.status() == WL_CONNECTED) {
-    display.print(WiFi.localIP().toString());
-  } else {
-    display.print(F("---"));
-  }
-
-  display.setCursor(0, 24);
-  display.print(F("AP : "));
-  display.print(WiFi.softAPIP().toString());
-
-  // ── Baris 3: MQTT + Widgets ────────────────────────────
-  display.setCursor(0, 36);
-  display.print(F("MQTT: "));
-  display.print(mqtt.connected() ? F("OK") : F("--"));
-  display.print(F("  W:"));
-  display.print(widgetCount);
-
-  // ── Baris 4: Heap + Uptime ─────────────────────────────
-  display.setCursor(0, 47);
-  display.print(F("Heap:"));
-  display.print(ESP.getFreeHeap() / 1024);
-  display.print(F("KB Up:"));
-  unsigned long up = millis() / 1000;
-  if (up >= 3600)       { display.print(up / 3600); display.print(F("h")); }
-  else if (up >= 60)    { display.print(up / 60);   display.print(F("m")); }
-  else                  { display.print(up);         display.print(F("s")); }
-
-  // ── Baris 5: PCF8574 status ────────────────────────────
-  display.setCursor(0, 57);
-  display.print(F("PCF8574: "));
-  display.print(pcfFound ? F("OK 0x") : F("ERR 0x"));
-  display.print(PCF8574_ADDRESS, HEX);
-
-  display.display();
-}
-
-// ============================================================
 // SETUP
 // ============================================================
 void setup() {
@@ -860,39 +681,15 @@ void setup() {
   loadConfig(); // Load EEPROM configuration
 
   Serial.println(F("\n╔════════════════════════════════════════════╗"));
-  Serial.println(F("║  TeweLocal — Offline-First Smart Home      ║"));
-  Serial.println(F("║  PCF8574 | OLED | WebSocket | MQTT         ║"));
+  Serial.println(F("║   TeweLocal — Offline-First Smart Home     ║"));
+  Serial.println(F("║   ESP8266 | WebSocket | MQTT Auto-Sync     ║"));
   Serial.println(F("╚════════════════════════════════════════════╝\n"));
 
-  // ── Init I2C (shared oleh PCF8574 dan OLED) ─────────────
-  Wire.begin(I2C_SDA, I2C_SCL);
-
-  // ── Init OLED SSD1306 ────────────────────────────────────
-  oledFound = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  if (oledFound) {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(0, 0);
-    display.println(F("TeweLocal"));
-    display.println(F("Booting..."));
-    display.display();
-    Serial.println(F("✅ OLED SSD1306 OK"));
-  } else {
-    Serial.println(F("❌ OLED tidak ditemukan di 0x3C"));
-  }
-
-  // ── Init PCF8574 ─────────────────────────────────────────
-  pcfFound = pcf.begin(PCF8574_ADDRESS, &Wire);
-  if (pcfFound) {
-    for (int p = 0; p < 8; p++) {
-      pcf.pinMode(p, OUTPUT);
-      pcf.digitalWrite(p, RELAY_ACTIVE_LOW ? HIGH : LOW); // semua relay OFF
-    }
-    Serial.printf("✅ PCF8574 @ 0x%02X — 8 relay siap\n", PCF8574_ADDRESS);
-  } else {
-    Serial.printf("❌ PCF8574 TIDAK DITEMUKAN di 0x%02X!\n", PCF8574_ADDRESS);
-    Serial.println(F("   Periksa wiring SDA/SCL dan A0/A1/A2"));
+  // Setup pins
+  for (int i = 0; i < PIN_MAP_SIZE; i++) {
+    pinMode(pinMap[i].pin, OUTPUT);
+    digitalWrite(pinMap[i].pin, HIGH); // Active LOW relay = OFF
+    Serial.printf("  GPIO%-2d → %s (OFF)\n", pinMap[i].pin, pinMap[i].key);
   }
 
   // WiFi
@@ -937,9 +734,6 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED)
     Serial.println("  STA: http://" + WiFi.localIP().toString());
   Serial.printf("  Widgets: %d\n\n", widgetCount);
-
-  // Tampilkan status awal di OLED
-  updateOLED();
 }
 
 // ============================================================
@@ -950,12 +744,6 @@ void loop() {
   if (mqttReady)
     mqtt.loop();
   ws.cleanupClients();
-
-  // Update OLED setiap 3 detik
-  if (millis() - lastOledUpdate >= 3000) {
-    lastOledUpdate = millis();
-    updateOLED();
-  }
 
   // Flush pending HTTP API syncs (fallback saat MQTT tidak tersedia)
   if (syncQueueCount > 0)
