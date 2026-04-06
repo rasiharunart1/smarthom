@@ -991,30 +991,21 @@
                 // Override/Add listeners to the global client
                 client.onConnect = () => {
                     console.log('✅ Connected to HiveMQ Cloud');
-                    
-                    // Subscribe STRICTLY to sensors (confirmed state feedback from device)
-                    // We NEVER subscribe to /control/ on the dashboard to avoid loops
+
+                    // Subscribe to sensor feedback (confirmed state from device)
                     const sensorTopic = `users/${userId}/devices/${deviceCode}/sensors/#`;
                     client.subscribe(sensorTopic, (topic, payload) => {
                         handleSensorMessage(topic, payload);
                     });
-                    
+
                     // Device connectivity status
                     client.subscribe(`users/${userId}/devices/${deviceCode}/status`, (topic, payload) => {
                         handleStatusMessage(payload);
                     });
                 };
 
-                // The global client in mqtt-client.js uses client.on('message') 
-                // but we also have an onMessage callback we can use
-                client.onMessage = (topic, message) => {
-                    if (topic.includes('/sensors/')) {
-                        handleSensorMessage(topic, message);
-                    } else if (topic.endsWith('/status')) {
-                        handleStatusMessage(message);
-                    }
-                    // /control/ is explicitly ignored here
-                };
+                // NOTE: onMessage intentionally NOT set here to avoid double-firing.
+                // The subscribe() callbacks above already handle all incoming messages.
 
             } else {
                 console.log('⏳ Waiting for MQTT engine...');

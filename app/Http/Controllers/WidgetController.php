@@ -541,9 +541,13 @@ class WidgetController extends Controller
     public function updateValue(Request $request, Device $device, $widgetKey)
     {
         try {
-            // Check if user owns this device
-            if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
-                abort(403);
+            $user = auth()->user();
+            // Allow: device owner, admin, OR shared user with 'control' permission
+            $isOwnerOrAdmin = $device->user_id === $user->id || $user->isAdmin();
+            $isSharedControl = $device->isSharedWith($user) && $device->getPermissionFor($user) === 'control';
+
+            if (!$isOwnerOrAdmin && !$isSharedControl) {
+                abort(403, 'You do not have control access to this device.');
             }
 
             if (!$device->widget) {
