@@ -866,13 +866,15 @@
                 $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>Storing...');
             }
             
-            const positions = grid.save(false).map(item => ({
-                key: item.id,
-                x: item.x,
-                y: item.y,
-                w: item.w,
-                h: item.h
-            }));
+            const positions = grid.save(false)
+                .filter(item => !!item.id)   // Skip items not yet saved to DB (no key)
+                .map(item => ({
+                    key: item.id,
+                    x: item.x,
+                    y: item.y,
+                    w: item.w,
+                    h: item.h
+                }));
 
             $.post('{{ route("widgets.update-positions", $selectedDevice ?? 0) }}', {
                 positions: positions,
