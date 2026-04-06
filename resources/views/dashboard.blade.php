@@ -964,6 +964,9 @@
 
         const deviceCode = '{{ $selectedDevice->device_code ?? "" }}';
         const userId = '{{ $selectedDevice->user_id ?? auth()->id() }}';
+        // isOwner: true if the logged-in user owns this device. Shared users must NOT write back to DB
+        // from sensor updates to avoid race condition / echo loops.
+        const isDeviceOwner = {{ auth()->id() == ($selectedDevice->user_id ?? null) ? 'true' : 'false' }};
 
         function initMqtt() {
             if (typeof window.mqttClient !== 'undefined') {
@@ -1062,13 +1065,18 @@
                 // Ensures that ESP sensor updates are saved to Laravel DB.
                 // silent=1 prevents the server from re-publishing to MQTT.
                 clearTimeout(dbSyncTimers[widgetKey]);
-                dbSyncTimers[widgetKey] = setTimeout(() => {
-                    $.post(`/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}/value`, {
-                        value: message,
-                        silent: 1,
-                        _token: '{{ csrf_token() }}'
-                    });
-                }, 500); // 500ms debounce
+                // Only the device OWNER writes back to DB from incoming MQTT sensor data.
+                // If a shared/slave user wrote back, it would re-trigger a server MQTT publish
+                // causing the value to bounce back and forth (race condition).
+                if (isDeviceOwner) {
+                    dbSyncTimers[widgetKey] = setTimeout(() => {
+                        $.post(`/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}/value`, {
+                            value: message,
+                            silent: 1,
+                            _token: '{{ csrf_token() }}'
+                        });
+                    }, 500);
+                }
 
                 // Also update any charts relying on this data
                 if (window.updateDependentCharts) {

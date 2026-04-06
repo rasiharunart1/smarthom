@@ -42,19 +42,10 @@
         }
 
         body {
-            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 25%, #2d1b4e 50%, #1e3a5f 75%, #0f2167 100%);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
-            background-attachment: fixed;
+            background: #0f1117;
             color: var(--text-primary);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
         }
 
         /* Remove default wrapper */
@@ -73,11 +64,9 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: rgba(10, 14, 39, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            background: #161b27;
+            border-bottom: 1px solid #2a3044;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.4);
             z-index: 1040;
             display: flex;
             align-items: center;
@@ -188,11 +177,9 @@
             left: 0;
             width: var(--sidebar-width);
             height: calc(100vh - var(--topbar-height));
-            background: rgba(10, 14, 39, 0.92);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(255, 255, 255, 0.07);
-            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+            background: #161b27;
+            border-right: 1px solid #2a3044;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.3);
             z-index: 1035;
             display: flex;
             flex-direction: column;
@@ -418,14 +405,13 @@
             display: flex;
             align-items: center;
             gap: 0.6rem;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1e2436;
+            border: 1px solid #2a3044;
             border-radius: 50px;
             padding: 0.35rem 0.9rem 0.35rem 0.35rem;
             color: var(--text-primary);
             text-decoration: none;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
         }
 
@@ -461,11 +447,10 @@
 
         /* Dropdown Menu */
         .dropdown-menu-glass {
-            background: rgba(10, 14, 39, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #161b27;
+            border: 1px solid #2a3044;
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
             padding: 0.5rem;
             margin-top: 0.5rem;
         }
@@ -512,32 +497,28 @@
         /* Hide original sidebar toggle */
         #sidebarToggleTop { display: none; }
 
-        /* Glassmorphism Components */
+        /* Clean Card Components */
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1a1f2e;
+            border: 1px solid #2a3044;
             border-radius: var(--radius-lg);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
         }
 
         .glass-modal-content {
-            background: rgba(10, 14, 39, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #161b27;
+            border: 1px solid #2a3044;
             border-radius: 20px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
 
         .glass-input, .form-control, select.form-control, textarea.form-control {
-            background: rgba(255, 255, 255, 0.05) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: #1e2436 !important;
+            border: 1px solid #2a3044 !important;
             color: var(--text-primary) !important;
             border-radius: 10px !important;
             padding: 0.75rem 1rem !important;
-            transition: all 0.3s ease !important;
+            transition: border-color 0.2s ease !important;
         }
 
         .glass-input:focus, .form-control:focus {
@@ -634,15 +615,13 @@
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
         }
 
-        /* Widget Cards with Minimalist Glassmorphism */
+        /* Widget Cards - clean solid surface */
         .widget-card-modern {
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 12px; /* Smaller radius for cleaner look */
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #1a1f2e;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: border-color 0.2s ease;
+            border: 1px solid #2a3044;
             height: 100%;
             display: flex;
             flex-direction: column;
