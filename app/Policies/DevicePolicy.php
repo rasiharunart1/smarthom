@@ -8,7 +8,7 @@ use App\Models\User;
 class DevicePolicy
 {
     /**
-     * Perform pre-authorization checks.
+     * Admins bypass all policy checks.
      */
     public function before(User $user, string $ability): bool|null
     {
@@ -20,22 +20,53 @@ class DevicePolicy
     }
 
     /**
-     * Create a new policy instance.
+     * Owner OR any shared user (view or control) can view.
      */
+    public function view(User $user, Device $device): bool
+    {
+        if ($user->id === $device->user_id) {
+            return true;
+        }
 
-    public function view(User $user, Device $device)
+        return $device->shares()->where('shared_with_user_id', $user->id)->exists();
+    }
+
+    /**
+     * Only the owner can edit the device name / settings.
+     */
+    public function update(User $user, Device $device): bool
     {
         return $user->id === $device->user_id;
     }
 
-    public function update(User $user, Device $device)
+    /**
+     * Only the owner can delete the device.
+     */
+    public function delete(User $user, Device $device): bool
     {
         return $user->id === $device->user_id;
     }
 
-    public function delete(User $user, Device $device)
+    /**
+     * Owner OR shared users with 'control' permission can send commands / toggle widgets.
+     */
+    public function control(User $user, Device $device): bool
+    {
+        if ($user->id === $device->user_id) {
+            return true;
+        }
+
+        return $device->shares()
+            ->where('shared_with_user_id', $user->id)
+            ->where('permission', 'control')
+            ->exists();
+    }
+
+    /**
+     * Only the owner can manage share settings.
+     */
+    public function share(User $user, Device $device): bool
     {
         return $user->id === $device->user_id;
     }
-
 }

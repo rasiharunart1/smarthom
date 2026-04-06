@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\DeviceShare;
 
 class User extends Authenticatable
 {
@@ -72,6 +73,16 @@ class User extends Authenticatable
     public function devices()
     {
         return $this->hasMany(Device::class);
+    }
+
+    /**
+     * Devices shared with this user by other owners.
+     */
+    public function sharedDevices()
+    {
+        return $this->belongsToMany(Device::class, 'device_shares', 'shared_with_user_id', 'device_id')
+            ->withPivot('permission', 'shared_by_user_id')
+            ->withTimestamps();
     }
 
     /**

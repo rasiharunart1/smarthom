@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\DeviceShareController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WidgetController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -19,6 +20,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('devices', DeviceController::class);
     Route::post('/devices/{device}/regenerate-code', [DeviceController::class, 'regenerateCode'])->name('devices.regenerate-code');
+
+    // Device Sharing Routes
+    Route::get('/devices/{device}/shares', [DeviceShareController::class, 'index'])->name('devices.shares.index');
+    Route::post('/devices/{device}/shares', [DeviceShareController::class, 'store'])->name('devices.shares.store');
+    Route::put('/devices/{device}/shares/{share}', [DeviceShareController::class, 'update'])->name('devices.shares.update');
+    Route::delete('/devices/{device}/shares/{share}', [DeviceShareController::class, 'destroy'])->name('devices.shares.destroy');
     
     // LSTM / AI Routes
     Route::post('/devices/{device}/lstm/toggle', [\App\Http\Controllers\LstmController::class, 'toggle'])->name('devices.lstm.toggle');

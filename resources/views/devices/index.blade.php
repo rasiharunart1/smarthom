@@ -46,6 +46,21 @@
                                     </td>
                                     <td class="py-4 align-middle">
                                         <div style="font-weight: 600;">{{ $device->name }}</div>
+                                        @if(($device->_share_source ?? 'owned') === 'shared')
+                                            <div class="mt-1">
+                                                <span class="badge" style="background: rgba(99,179,237,0.12); color: #90cdf4; border: 1px solid rgba(99,179,237,0.25); border-radius: 20px; font-size: 0.68rem; padding: 2px 8px; font-weight: 600;">
+                                                    <i class="fas fa-share-alt mr-1"></i>Shared
+                                                    @if($device->_share_permission === 'control')
+                                                        &mdash; 🎮 Control
+                                                    @else
+                                                        &mdash; 👁 View only
+                                                    @endif
+                                                </span>
+                                                @if($device->_shared_by)
+                                                    <span class="ml-1" style="font-size: 0.7rem; color: var(--text-muted);">by {{ $device->_shared_by->name }}</span>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </td>
                                     <td class="py-4 align-middle">
                                         <div class="d-flex align-items-center">
@@ -69,17 +84,23 @@
                                                class="btn btn-sm mr-2" style="background: rgba(16, 185, 129, 0.1); color: var(--primary-green-light); border: 1px solid rgba(16, 185, 129, 0.2);" title="Dashboard">
                                                 <i class="fas fa-chart-line"></i>
                                             </a>
-                                            <a href="{{ route('devices.edit', $device) }}" 
-                                               class="btn btn-sm mr-2" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2);" title="Settings">
-                                                <i class="fas fa-cog"></i>
-                                            </a>
-                                            <form action="{{ route('devices.destroy', $device) }}" method="POST" class="d-inline" onsubmit="return confirm('Erase this hardware from inventory?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
+                                            @if(($device->_share_source ?? 'owned') === 'owned')
+                                                <a href="{{ route('devices.edit', $device) }}" 
+                                                   class="btn btn-sm mr-2" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2);" title="Settings">
+                                                    <i class="fas fa-cog"></i>
+                                                </a>
+                                                <a href="{{ route('devices.shares.index', $device->device_code) }}"
+                                                   class="btn btn-sm mr-2" style="background: rgba(99,179,237,0.1); color: #90cdf4; border: 1px solid rgba(99,179,237,0.2);" title="Manage Sharing">
+                                                    <i class="fas fa-share-alt"></i>
+                                                </a>
+                                                <form action="{{ route('devices.destroy', $device) }}" method="POST" class="d-inline" onsubmit="return confirm('Erase this hardware from inventory?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

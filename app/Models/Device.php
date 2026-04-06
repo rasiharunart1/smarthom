@@ -87,7 +87,6 @@ class Device extends Model
     }
 
 
-    #Relasi
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -104,6 +103,41 @@ class Device extends Model
     public function widget()
     {
         return $this->hasOne(Widget::class);
+    }
+
+    /**
+     * All share records for this device
+     */
+    public function shares()
+    {
+        return $this->hasMany(DeviceShare::class);
+    }
+
+    /**
+     * Users this device has been shared with
+     */
+    public function sharedWithUsers()
+    {
+        return $this->belongsToMany(User::class, 'device_shares', 'device_id', 'shared_with_user_id')
+            ->withPivot('permission', 'shared_by_user_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if the device is shared with a specific user
+     */
+    public function isSharedWith(User $user): bool
+    {
+        return $this->shares()->where('shared_with_user_id', $user->id)->exists();
+    }
+
+    /**
+     * Get the permission level for a specific user ('view', 'control', or null if not shared)
+     */
+    public function getPermissionFor(User $user): ?string
+    {
+        $share = $this->shares()->where('shared_with_user_id', $user->id)->first();
+        return $share?->permission;
     }
 
     /**

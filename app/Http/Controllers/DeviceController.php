@@ -12,12 +12,28 @@ class DeviceController extends Controller
     public function index()
     {
         if (Auth::user()->isAdmin()) {
-            $devices = Device::with('widgets')->latest()->get();
+            $devices = Device::with(['widgets', 'user'])->latest()->get()
+                ->map(fn($d) => $d->setAttribute('_share_source', 'owned'));
         } else {
-            $devices = Device::where('user_id', Auth::id())
-                ->with('widgets')
+            // Owned devices
+            $ownedDevices = Device::where('user_id', Auth::id())
+                ->with(['widgets', 'user'])
                 ->latest()
-                ->get();
+                ->get()
+                ->map(fn($d) => $d->setAttribute('_share_source', 'owned'));
+
+            // Shared devices
+            $sharedDevices = Auth::user()->sharedDevices()
+                ->with(['widgets', 'user'])
+                ->get()
+                ->map(function($d) {
+                    $d->setAttribute('_share_source', 'shared');
+                    $d->setAttribute('_share_permission', $d->pivot->permission);
+                    $d->setAttribute('_shared_by', \App\Models\User::find($d->pivot->shared_by_user_id));
+                    return $d;
+                });
+
+            $devices = $ownedDevices->concat($sharedDevices);
         }
 
         return view('devices.index', compact('devices'));

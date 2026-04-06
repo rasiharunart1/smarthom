@@ -74,6 +74,21 @@
         </div>
 
         <div class="col-lg-4">
+            <!-- Manage Sharing -->
+            <div class="glass-card mb-4">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                    <h5 class="m-0 font-weight-bold" style="color: var(--primary-green-light);">Sharing</h5>
+                </div>
+                <div class="card-body p-4">
+                    <p class="small mb-3" style="color: var(--text-muted);">
+                        Bagikan akses device ini ke user lain di platform. Kamu tetap sebagai pemilik penuh.
+                    </p>
+                    <a href="{{ route('devices.shares.index', $device->device_code) }}" class="btn glass-button w-100" style="background: rgba(99,179,237,0.1); color: #90cdf4; border: 1px solid rgba(99,179,237,0.3);">
+                        <i class="fas fa-share-alt mr-2"></i>Manage Sharing
+                    </a>
+                </div>
+            </div>
+
             <!-- Stats -->
             <div class="glass-card mb-4">
                 <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
