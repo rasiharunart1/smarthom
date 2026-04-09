@@ -12,9 +12,11 @@ class Plan extends Model
         'max_devices',
         'max_widgets_per_device',
         'features',
+        'has_logs',
     ];
 
     protected $casts = [
-        'features' => 'array',
+        'features'  => 'array',
+        'has_logs'  => 'boolean',
     ];
 }

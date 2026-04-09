@@ -48,6 +48,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/devices/{device}/logs/run-export', [App\Http\Controllers\DeviceLogController::class, 'export'])->name('logs.export');
     Route::get('/devices/{device}/history', [App\Http\Controllers\DeviceLogController::class, 'history'])->name('devices.history');
 
+    // Aggregated Telemetry Logs (Gold/Enterprise only) — OHLC chart endpoint
+    Route::get('/devices/{device}/telemetry/{widgetKey}', [App\Http\Controllers\TelemetryLogController::class, 'aggregated'])->name('telemetry.aggregated');
+
     // Schedule Management
     Route::resource('schedules', \App\Http\Controllers\ScheduleController::class);
 

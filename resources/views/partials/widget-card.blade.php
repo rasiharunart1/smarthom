@@ -1,14 +1,27 @@
-<div class="card h-100 widget-card-modern border-0" 
+<div class="card h-100 widget-card-modern border-0"
+     id="widget-card-{{ $widget->key }}"
      data-widget-key="{{ $widget->key }}"
      data-widget-type="{{ $widget->type }}"
-     data-widget-width="{{ $widget->width ??  4 }}"
-     data-widget-height="{{ $widget->height ??  2 }}">
+     data-widget-width="{{ $widget->width ?? 4 }}"
+     data-widget-height="{{ $widget->height ?? 2 }}"
+     data-alert-enabled="{{ ($widget->config['alert_enabled'] ?? false) ? '1' : '0' }}"
+     data-alert-min="{{ $widget->config['alert_min'] ?? '' }}"
+     data-alert-max="{{ $widget->config['alert_max'] ?? '' }}">
     
     <div class="card-header-modern">
         <div class="d-flex justify-content-between align-items-center">
-            <div class="widget-title">
+            <div class="widget-title d-flex align-items-center gap-2">
                 <i class="fas fa-{{ $widget->config['icon'] ?? 'cube' }} widget-icon"></i>
                 <span>{{ $widget->name }}</span>
+                @if(($widget->config['alert_enabled'] ?? false))
+                    <span class="alert-badge" id="alert-badge-{{ $widget->key }}" style="display:none;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:0.7em;"></i>ALERT
+                    </span>
+                @else
+                    <span class="alert-badge" id="alert-badge-{{ $widget->key }}" style="display:none;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:0.7em;"></i>ALERT
+                    </span>
+                @endif
             </div>
             <div class="widget-actions">
                 <button class="btn-widget-action" onclick="editWidget('{{ $widget->key }}')" title="Edit Widget">

@@ -86,6 +86,58 @@
                                 <option value="fire">Heater</option>
                             </select>
                         </div>
+                        {{-- ── Alert Threshold Section ──────────────────────── --}}
+                        <div class="col-12 mt-4 alert-threshold-field">
+                            <hr class="border-secondary opacity-25 mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="text-white mb-0">
+                                    <i class="fas fa-bell mr-2" style="color:#f59e0b;"></i>Alert Threshold
+                                </h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted mr-2">Enable Blink Alert</small>
+                                    <div class="toggle-modern-wrapper" style="transform:scale(0.8);">
+                                        <input type="checkbox" id="editAlertEnabled" name="config[alert_enabled]" value="1"
+                                               class="toggle-modern-input">
+                                        <label for="editAlertEnabled" class="toggle-modern-label">
+                                            <span class="toggle-modern-button"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="alertThresholdFields" class="row" style="display:none;">
+                                <div class="col-md-6 mb-3">
+                                    <label class="glass-label">
+                                        <i class="fas fa-arrow-down mr-1" style="color:#ef4444;"></i>
+                                        Alert Min
+                                    </label>
+                                    <input type="number" step="any" class="form-control glass-input"
+                                           id="editAlertMin" name="config[alert_min]"
+                                           placeholder="e.g. 10 — blink jika nilai &lt; ini">
+                                    <small class="text-muted">Widget blink jika nilai di bawah angka ini</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="glass-label">
+                                        <i class="fas fa-arrow-up mr-1" style="color:#ef4444;"></i>
+                                        Alert Max
+                                    </label>
+                                    <input type="number" step="any" class="form-control glass-input"
+                                           id="editAlertMax" name="config[alert_max]"
+                                           placeholder="e.g. 80 — blink jika nilai &gt; ini">
+                                    <small class="text-muted">Widget blink jika nilai di atas angka ini</small>
+                                </div>
+                                <div class="col-12 mb-2">
+                                    <div class="rounded p-2" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
+                                        <small style="color:#fca5a5;">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Widget akan <strong>berkedip merah</strong> saat nilai di luar rentang [Min, Max].
+                                            Kosongkan salah satu untuk hanya memeriksa satu batas.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ── Scheduling Section ──────────────────────────── --}}
                         <div class="col-12 mt-4">
                             <hr class="border-secondary opacity-25 mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -126,4 +178,63 @@
         background: #0a0e27;
         color: white;
     }
+
+    /* Alert threshold toggle show/hide */
+    #editAlertEnabled:checked ~ #alertThresholdFields { display: flex !important; }
+
+    /* Widget Alert Blink Animation */
+    @keyframes widget-blink-border {
+        0%, 100% {
+            border-color: rgba(239, 68, 68, 0.8);
+            box-shadow: 0 0 0 0 rgba(239,68,68,0.4), inset 0 0 15px rgba(239,68,68,0.05);
+        }
+        50% {
+            border-color: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 20px 4px rgba(239,68,68,0.3), inset 0 0 20px rgba(239,68,68,0.1);
+        }
+    }
+
+    .widget-alert-active {
+        animation: widget-blink-border 1.2s ease-in-out infinite !important;
+        border-color: rgba(239,68,68,0.8) !important;
+        background: rgba(239, 68, 68, 0.04) !important;
+    }
+
+    .widget-alert-active .card-header-modern {
+        background: rgba(239, 68, 68, 0.1) !important;
+    }
+
+    .widget-alert-active .widget-icon,
+    .widget-alert-active .widget-title span {
+        color: #fca5a5 !important;
+    }
+
+    /* Alert badge on card */
+    .alert-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(239,68,68,0.15);
+        color: #fca5a5;
+        border: 1px solid rgba(239,68,68,0.3);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 0.65em;
+        font-weight: 700;
+        animation: widget-blink-border 1.2s ease-in-out infinite;
+        white-space: nowrap;
+    }
 </style>
+
+<script>
+    // Show/hide alert threshold fields based on toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const alertToggle = document.getElementById('editAlertEnabled');
+        const alertFields = document.getElementById('alertThresholdFields');
+        if (alertToggle && alertFields) {
+            alertToggle.addEventListener('change', function() {
+                alertFields.style.display = this.checked ? 'flex' : 'none';
+            });
+        }
+    });
+</script>

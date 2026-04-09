@@ -142,4 +142,14 @@ class User extends Authenticatable
         // Now fully database driven (Admin controls this)
         return (bool) $this->lstm_allowed;
     }
+
+    /**
+     * Check if user's plan includes telemetry log history.
+     * Gold/Enterprise plans have has_logs = true; Lite/Free do not.
+     */
+    public function canViewLogs(): bool
+    {
+        if ($this->isAdmin()) return true;
+        return (bool) ($this->getPlanConfig()->has_logs ?? false);
+    }
 }

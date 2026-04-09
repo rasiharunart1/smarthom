@@ -867,14 +867,24 @@
             }
             
             const positions = grid.save(false)
-                .filter(item => !!item.id)   // Skip items not yet saved to DB (no key)
+                .filter(item => !!item.id)   // Skip unsaved widgets (no DB key yet)
                 .map(item => ({
-                    key: item.id,
-                    x: item.x,
-                    y: item.y,
-                    w: item.w,
-                    h: item.h
+                    key:  String(item.id),
+                    x:    Math.round(item.x ?? 0),
+                    y:    Math.round(item.y ?? 0),
+                    w:    Math.round(item.w ?? 4),
+                    h:    Math.round(item.h ?? 2)
                 }));
+
+            // Nothing to save (e.g. all widgets were freshly dropped, not yet in DB)
+            if (positions.length === 0) {
+                isSaving = false;
+                if (!isAutoSave) {
+                    $btn.prop('disabled', false).html(originalText);
+                }
+                console.warn('⚠️ saveGridLayout: no saveable positions found, skipping.');
+                return;
+            }
 
             $.post('{{ route("widgets.update-positions", $selectedDevice ?? 0) }}', {
                 positions: positions,
@@ -1053,6 +1063,8 @@
             }
             if (widgetKey) {
                 updateWidgetUI(widgetKey, message, type);
+                // ✅ Alert threshold check
+                checkAlertThreshold(widgetKey, message);
                 
                 // ✅ UPDATE DATABASE SILENTLY 
                 // Ensures that ESP sensor updates are saved to Laravel DB.
@@ -1134,6 +1146,75 @@
             }
             isUpdatingUI = false;
         }
+
+        // ═══════════════════════════════════════════════════════
+        // ALERT THRESHOLD — Blink widget if value out of range
+        // ═══════════════════════════════════════════════════════
+        const alertTriggeredWidgets = new Set();
+
+        function checkAlertThreshold(widgetKey, value) {
+            // Find the card element (has data-alert-* attributes)
+            const $card = $(`[data-widget-key="${widgetKey}"]`);
+            if (!$card.length) return;
+
+            const alertEnabled = $card.attr('data-alert-enabled') === '1';
+            if (!alertEnabled) return;
+
+            const rawMin = $card.attr('data-alert-min');
+            const rawMax = $card.attr('data-alert-max');
+            const numVal  = parseFloat(value);
+
+            // Skip non-numeric values (e.g. toggle strings)
+            if (isNaN(numVal)) return;
+
+            let isAlert = false;
+            if (rawMin !== '' && rawMin !== undefined && !isNaN(parseFloat(rawMin))) {
+                if (numVal < parseFloat(rawMin)) isAlert = true;
+            }
+            if (rawMax !== '' && rawMax !== undefined && !isNaN(parseFloat(rawMax))) {
+                if (numVal > parseFloat(rawMax)) isAlert = true;
+            }
+
+            const $badge = $(`#alert-badge-${widgetKey}`);
+
+            if (isAlert) {
+                $card.addClass('widget-alert-active');
+                $badge.show();
+                // Toast notification — only first time per session per widget
+                if (!alertTriggeredWidgets.has(widgetKey)) {
+                    alertTriggeredWidgets.add(widgetKey);
+                    const widgetName = $card.find('.widget-title span').first().text().trim();
+                    const minTxt = rawMin !== '' ? ` Min: ${rawMin}` : '';
+                    const maxTxt = rawMax !== '' ? ` Max: ${rawMax}` : '';
+                    Swal.fire({
+                        icon: 'warning',
+                        title: `⚠ Alert: ${widgetName}`,
+                        html: `Nilai <strong>${numVal}</strong> di luar batas threshold!<br><small style="color:#94a3b8">${minTxt}${maxTxt}</small>`,
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 5000,
+                        timerProgressBar: true,
+                        background: 'rgba(30,8,8,0.95)',
+                        color: '#fca5a5'
+                    });
+                }
+            } else {
+                $card.removeClass('widget-alert-active');
+                $badge.hide();
+                // Reset trigger so alert fires again next time
+                alertTriggeredWidgets.delete(widgetKey);
+            }
+        }
+
+        // On page load: check existing widget values against thresholds
+        document.addEventListener('DOMContentLoaded', function() {
+            @foreach($widgets as $w)
+                @if(!empty($w->config['alert_enabled']) && !empty($w->value))
+                    checkAlertThreshold('{{ $w->key }}', '{{ $w->value }}');
+                @endif
+            @endforeach
+        });
 
 
 
@@ -1380,6 +1461,13 @@
             } else {
                 $('#noScheduleMsg').show();
             }
+
+            // ── Alert Threshold ──────────────────────────────────
+            const alertEnabled = widget.config?.alert_enabled == 1 || widget.config?.alert_enabled === true;
+            $('#editAlertEnabled').prop('checked', alertEnabled);
+            $('#editAlertMin').val(widget.config?.alert_min ?? '');
+            $('#editAlertMax').val(widget.config?.alert_max ?? '');
+            $('#alertThresholdFields').toggle(alertEnabled);
 
             $('#editWidgetModal').modal('show');
         }

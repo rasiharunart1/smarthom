@@ -310,24 +310,28 @@ class WidgetController extends Controller
             }
 
             $validated = $request->validate([
-                'key' => 'sometimes|string|max:255', // Renaming the array key
-                'type_index' => 'sometimes|string|max:255', // MQTT Index
-                'name' => 'sometimes|required|string|max:255',
-                'type' => 'sometimes|required|in:toggle,slider,gauge,text,chart',
-                'value' => 'sometimes|nullable',
-                'min' => 'sometimes|nullable|integer',
-                'max' => 'sometimes|nullable|integer|gt:min',
-                'width' => 'sometimes|nullable|integer|min:1|max:12',
-                'height' => 'sometimes|nullable|integer|min:1|max:12',
-                'position_x' => 'sometimes|nullable|integer',
-                'position_y' => 'sometimes|nullable|integer',
-                'config' => 'sometimes|nullable|array',
-                'config.source_key' => 'sometimes|nullable|string', // Chart data source (single)
-                'config.y_axis_step' => 'sometimes|nullable|numeric', // Y-axis step size
-                'config.unit' => 'sometimes|nullable|string|max:50', // Unit label
-                'config.icon' => 'sometimes|nullable|string|max:50', // Icon name
-                'config.description' => 'sometimes|nullable|string|max:500', // Description
-                'config.schedules' => 'sometimes|nullable|array', // Automation schedules
+                'key'                  => 'sometimes|string|max:255',
+                'type_index'           => 'sometimes|string|max:255',
+                'name'                 => 'sometimes|required|string|max:255',
+                'type'                 => 'sometimes|required|in:toggle,slider,gauge,text,chart',
+                'value'                => 'sometimes|nullable',
+                'min'                  => 'sometimes|nullable|integer',
+                'max'                  => 'sometimes|nullable|integer|gt:min',
+                'width'                => 'sometimes|nullable|integer|min:1|max:12',
+                'height'               => 'sometimes|nullable|integer|min:1|max:12',
+                'position_x'           => 'sometimes|nullable|integer',
+                'position_y'           => 'sometimes|nullable|integer',
+                'config'               => 'sometimes|nullable|array',
+                'config.source_key'    => 'sometimes|nullable|string',
+                'config.y_axis_step'   => 'sometimes|nullable|numeric',
+                'config.unit'          => 'sometimes|nullable|string|max:50',
+                'config.icon'          => 'sometimes|nullable|string|max:50',
+                'config.description'   => 'sometimes|nullable|string|max:500',
+                'config.schedules'     => 'sometimes|nullable|array',
+                // Alert threshold fields
+                'config.alert_enabled' => 'sometimes|nullable|boolean',
+                'config.alert_min'     => 'sometimes|nullable|numeric',
+                'config.alert_max'     => 'sometimes|nullable|numeric',
             ]);
 
             // Handle key renaming if requested
