@@ -209,4 +209,38 @@
         border: 1px solid rgba(59, 130, 246, 0.3);
         font-family: monospace;
     }
+
+    /* Alert blinking animation */
+    @keyframes widget-blink-border {
+        0%   { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
+        50%  { border-color: rgba(239, 68, 68, 0.1); box-shadow: none; }
+        100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
+    }
+
+    .widget-alert-blink {
+        animation: widget-blink-border 1s ease-in-out infinite !important;
+        border-color: rgba(239, 68, 68, 0.8) !important;
+    }
+
+    /* Alert badge chip */
+    .alert-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.5);
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        animation: badge-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes badge-pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.5; }
+    }
 </style>

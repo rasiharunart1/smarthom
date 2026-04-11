@@ -96,6 +96,7 @@ function initDashboard() {
                     }
                 });
                 initializeGaugesLazy();
+                initAlerts();
                 startOptimizedPolling();
             } else {
                 console.error('❌ GridStack init failed');
@@ -127,6 +128,28 @@ function initializeGaugesLazy() {
         observer.observe(this);
     });
     console.log('✅ Gauges lazy loaded');
+}
+
+// Check alerts on initial page load using DOM values
+function initAlerts() {
+    $('.grid-stack-item').each(function() {
+        const widgetKey = $(this).attr('gs-id');
+        if (!widgetKey) return;
+
+        const $card = $(this).find(`#widget-card-${widgetKey}`);
+        if (!$card.length) return;
+
+        const alertEnabled = $card.data('alert-enabled');
+        if (!alertEnabled || alertEnabled === '0') return;
+
+        // Read initial numeric value from DOM
+        const rawVal = $card.find('.widget-value-display, .gauge-value').first().text();
+        const numVal = parseFloat(rawVal);
+        if (!isNaN(numVal)) {
+            checkWidgetAlert(widgetKey, numVal);
+        }
+    });
+    console.log('✅ Alerts initialized');
 }
 
 // Polling
@@ -305,6 +328,7 @@ function updateWidgetUI(widgetKey, value, type) {
             const max = parseFloat($widget.find('.widget-slider').attr('max')) || 100;
             const pct = ((sliderVal - min) / (max - min)) * 100;
             $widget.find('.slider-progress').css('width', pct + '%');
+            checkWidgetAlert(widgetKey, sliderVal);
             break;
         case 'gauge':
             const gaugeVal = parseFloat(value) || 0;
@@ -312,12 +336,48 @@ function updateWidgetUI(widgetKey, value, type) {
             const gaugeMin = parseFloat($widget.find('.label-min').text()) || 0;
             const gaugeMax = parseFloat($widget.find('.label-max').text()) || 100;
             updateGaugeModern(widgetKey, gaugeVal, gaugeMin, gaugeMax);
+            checkWidgetAlert(widgetKey, gaugeVal);
             break;
         case 'text':
             $widget.find('.widget-value-display').text(value);
+            // Try numeric check for text widgets too
+            const numVal = parseFloat(value);
+            if (!isNaN(numVal)) checkWidgetAlert(widgetKey, numVal);
             break;
     }
     $widget.find('.update-time').html('<i class="far fa-clock"></i> Just now');
+}
+
+// Alert threshold blinking check
+function checkWidgetAlert(widgetKey, numericValue) {
+    // Find the card element inside the grid-stack-item
+    const $item = $(`.grid-stack-item[gs-id="${widgetKey}"]`);
+    const $card = $item.find(`#widget-card-${widgetKey}`);
+    if (!$card.length) return;
+
+    const alertEnabled = $card.data('alert-enabled');
+    if (!alertEnabled || alertEnabled === '0') return;
+
+    const alertMin = $card.data('alert-min');
+    const alertMax = $card.data('alert-max');
+    const $badge = $card.find(`#alert-badge-${widgetKey}`);
+
+    let triggered = false;
+
+    if (alertMin !== '' && alertMin !== undefined && numericValue < parseFloat(alertMin)) {
+        triggered = true;
+    }
+    if (alertMax !== '' && alertMax !== undefined && numericValue > parseFloat(alertMax)) {
+        triggered = true;
+    }
+
+    if (triggered) {
+        $card.addClass('widget-alert-blink');
+        if ($badge.length) $badge.show();
+    } else {
+        $card.removeClass('widget-alert-blink');
+        if ($badge.length) $badge.hide();
+    }
 }
 
 // Helpers
