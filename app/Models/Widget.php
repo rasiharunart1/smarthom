@@ -131,9 +131,16 @@ class Widget extends Model
             throw new \Exception("Widget key '{$key}' not found");
         }
 
-        // Deep merge config if present
+        // Deep merge config: incoming values always win (including false/null/0).
+        // array_merge alone is insufficient because it skips false booleans being
+        // "overridden" when the key already exists with a truthy value in some PHP
+        // quirks. Using explicit key assignment ensures alert_enabled=false sticks.
         if (isset($updates['config']) && isset($widgets[$key]['config']) && is_array($updates['config']) && is_array($widgets[$key]['config'])) {
-            $updates['config'] = array_merge($widgets[$key]['config'], $updates['config']);
+            $merged = $widgets[$key]['config'];
+            foreach ($updates['config'] as $cfgKey => $cfgVal) {
+                $merged[$cfgKey] = $cfgVal; // Explicit override — respects false, null, 0
+            }
+            $updates['config'] = $merged;
         }
 
         $widgets[$key] = array_merge($widgets[$key], $updates);

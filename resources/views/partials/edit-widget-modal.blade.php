@@ -96,6 +96,8 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <small class="text-muted mr-2">Enable Blink Alert</small>
                                     <div class="toggle-modern-wrapper" style="transform:scale(0.8);">
+                                        {{-- Hidden input ensures value=0 is sent when checkbox is unchecked --}}
+                                        <input type="hidden" name="config[alert_enabled]" value="0">
                                         <input type="checkbox" id="editAlertEnabled" name="config[alert_enabled]" value="1"
                                                class="toggle-modern-input">
                                         <label for="editAlertEnabled" class="toggle-modern-label">

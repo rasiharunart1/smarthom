@@ -309,6 +309,18 @@ class WidgetController extends Controller
                 ], 404);
             }
 
+            // ── Fix checkbox unchecked behavior ────────────────────────────
+            // HTML checkbox tidak mengirim nilai apapun saat unchecked.
+            // Jika form dikirim dengan config[] tapi tanpa config[alert_enabled],
+            // artinya user sengaja mematikannya → paksa false.
+            if ($request->has('config') && !$request->has('config.alert_enabled')) {
+                $request->merge([
+                    'config' => array_merge($request->input('config', []), [
+                        'alert_enabled' => false,
+                    ])
+                ]);
+            }
+
             $validated = $request->validate([
                 'key'                  => 'sometimes|string|max:255',
                 'type_index'           => 'sometimes|string|max:255',

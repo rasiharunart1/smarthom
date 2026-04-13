@@ -1585,17 +1585,23 @@
             const formData = new FormData(this);
             formData.append('_method', 'PUT');
 
+            // ── Fix duplicate hidden+checkbox values for alert_enabled ──────
+            // FormData contains both hidden(0) AND checkbox(1) when checked.
+            // We delete all entries for config[alert_enabled] and re-append
+            // the correct single value so Laravel gets exactly one value.
+            const alertChecked = document.getElementById('editAlertEnabled')?.checked;
+            formData.delete('config[alert_enabled]');
+            formData.append('config[alert_enabled]', alertChecked ? '1' : '0');
+
             // Debug: Log form data
             console.log('📝 Submitting widget update:');
             console.log('   - Action:', $form.attr('action'));
-            console.log('   - Widget Type:', $('#editWidgetType').val());
-            console.log('   - Source Key Selected:', $('#editWidgetSource').val());
-            console.log('   - Y-Axis Step:', $('#editWidgetYAxisStep').val());
-            
-            // Log all form data
+            console.log('   - alert_enabled:', alertChecked ? '1' : '0');
             for (let [key, value] of formData.entries()) {
                 console.log(`   - ${key}: ${value}`);
             }
+
+            const currentWidgetKey = $('#editWidgetKey').val();
 
             $.ajax({
                 url: $form.attr('action'),
@@ -1604,6 +1610,26 @@
                 processData: false,
                 contentType: false,
                 success: (response) => {
+                    // ── Update card data-alert-* attributes immediately ─────
+                    // So blink stops/starts without waiting for full page reload
+                    const $card = $(`[data-widget-key="${currentWidgetKey}"]`);
+                    if ($card.length) {
+                        const newAlertEnabled = alertChecked ? '1' : '0';
+                        const newMin = $('#editAlertMin').val();
+                        const newMax = $('#editAlertMax').val();
+
+                        $card.attr('data-alert-enabled', newAlertEnabled);
+                        $card.attr('data-alert-min', newMin);
+                        $card.attr('data-alert-max', newMax);
+
+                        // If alert disabled → immediately stop blink
+                        if (!alertChecked) {
+                            $card.removeClass('widget-alert-active');
+                            $(`#alert-badge-${currentWidgetKey}`).hide();
+                            alertTriggeredWidgets.delete(currentWidgetKey);
+                        }
+                    }
+
                     Swal.fire({
                         icon: 'success',
                         title: 'Synced',
