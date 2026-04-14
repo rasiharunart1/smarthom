@@ -210,37 +210,95 @@
         font-family: monospace;
     }
 
-    /* Alert blinking animation */
+    /* =============================================
+       ALERT STATE: NORMAL (green border glow)
+    ============================================= */
+    .widget-state-normal {
+        border-color: rgba(16, 185, 129, 0.5) !important;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.18),
+                    inset 0 0 6px rgba(16, 185, 129, 0.05) !important;
+        transition: border-color 0.6s ease, box-shadow 0.6s ease;
+    }
+
+    /* =============================================
+       ALERT STATE: WARN (amber/yellow pulsing glow)
+    ============================================= */
+    @keyframes widget-warn-pulse {
+        0%   { border-color: rgba(245, 158, 11, 0.8); box-shadow: 0 0 14px rgba(245, 158, 11, 0.35); }
+        50%  { border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 0 6px rgba(245, 158, 11, 0.1); }
+        100% { border-color: rgba(245, 158, 11, 0.8); box-shadow: 0 0 14px rgba(245, 158, 11, 0.35); }
+    }
+
+    .widget-state-warn {
+        animation: widget-warn-pulse 2s ease-in-out infinite !important;
+    }
+
+    /* =============================================
+       ALERT STATE: CRITICAL (red fast blink)
+    ============================================= */
+    @keyframes widget-blink-critical {
+        0%   { border-color: rgba(239, 68, 68, 0.95); box-shadow: 0 0 18px rgba(239, 68, 68, 0.5); }
+        50%  { border-color: rgba(239, 68, 68, 0.15); box-shadow: none; }
+        100% { border-color: rgba(239, 68, 68, 0.95); box-shadow: 0 0 18px rgba(239, 68, 68, 0.5); }
+    }
+
+    .widget-state-critical {
+        animation: widget-blink-critical 0.8s ease-in-out infinite !important;
+    }
+
+    /* Legacy fallback (still supported) */
     @keyframes widget-blink-border {
         0%   { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
         50%  { border-color: rgba(239, 68, 68, 0.1); box-shadow: none; }
         100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); }
     }
-
     .widget-alert-blink {
         animation: widget-blink-border 1s ease-in-out infinite !important;
         border-color: rgba(239, 68, 68, 0.8) !important;
     }
 
-    /* Alert badge chip */
+    /* =============================================
+       ALERT BADGE — dynamic via data-state
+    ============================================= */
     .alert-badge {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        background: rgba(239, 68, 68, 0.2);
-        color: #f87171;
-        border: 1px solid rgba(239, 68, 68, 0.5);
         border-radius: 20px;
         padding: 2px 8px;
         font-size: 0.65rem;
         font-weight: 700;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+        /* default = critical red */
+        background: rgba(239, 68, 68, 0.18);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.45);
         animation: badge-pulse 1s ease-in-out infinite;
+        transition: background 0.4s, color 0.4s, border-color 0.4s;
+    }
+
+    .alert-badge[data-state="warn"] {
+        background: rgba(245, 158, 11, 0.18);
+        color: #fbbf24;
+        border-color: rgba(245, 158, 11, 0.5);
+        animation: badge-pulse-warn 1.8s ease-in-out infinite;
+    }
+
+    .alert-badge[data-state="critical"] {
+        background: rgba(239, 68, 68, 0.18);
+        color: #f87171;
+        border-color: rgba(239, 68, 68, 0.45);
+        animation: badge-pulse 0.8s ease-in-out infinite;
     }
 
     @keyframes badge-pulse {
         0%, 100% { opacity: 1; }
-        50%       { opacity: 0.5; }
+        50%       { opacity: 0.45; }
+    }
+
+    @keyframes badge-pulse-warn {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.55; }
     }
 </style>

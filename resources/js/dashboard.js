@@ -348,9 +348,8 @@ function updateWidgetUI(widgetKey, value, type) {
     $widget.find('.update-time').html('<i class="far fa-clock"></i> Just now');
 }
 
-// Alert threshold blinking check
+// Alert threshold - gradient color states: normal (green) / warn (yellow) / critical (red)
 function checkWidgetAlert(widgetKey, numericValue) {
-    // Find the card element inside the grid-stack-item
     const $item = $(`.grid-stack-item[gs-id="${widgetKey}"]`);
     const $card = $item.find(`#widget-card-${widgetKey}`);
     if (!$card.length) return;
@@ -358,27 +357,77 @@ function checkWidgetAlert(widgetKey, numericValue) {
     const alertEnabled = $card.data('alert-enabled');
     if (!alertEnabled || alertEnabled === '0') return;
 
-    const alertMin = $card.data('alert-min');
-    const alertMax = $card.data('alert-max');
+    const rawMin = $card.data('alert-min');
+    const rawMax = $card.data('alert-max');
     const $badge = $card.find(`#alert-badge-${widgetKey}`);
 
-    let triggered = false;
+    const hasMin = rawMin !== '' && rawMin !== undefined && !isNaN(parseFloat(rawMin));
+    const hasMax = rawMax !== '' && rawMax !== undefined && !isNaN(parseFloat(rawMax));
 
-    if (alertMin !== '' && alertMin !== undefined && numericValue < parseFloat(alertMin)) {
-        triggered = true;
-    }
-    if (alertMax !== '' && alertMax !== undefined && numericValue > parseFloat(alertMax)) {
-        triggered = true;
+    const minVal = hasMin ? parseFloat(rawMin) : null;
+    const maxVal = hasMax ? parseFloat(rawMax) : null;
+
+    // Warn zone = 20% of range (or 15% of single bound if only one side defined)
+    let warnMargin = 0;
+    if (hasMin && hasMax) {
+        warnMargin = (maxVal - minVal) * 0.20;
+    } else if (hasMax) {
+        warnMargin = Math.abs(maxVal) * 0.15;
+    } else if (hasMin) {
+        warnMargin = Math.abs(minVal) * 0.15;
     }
 
-    if (triggered) {
-        $card.addClass('widget-alert-blink');
-        if ($badge.length) $badge.show();
+    // Determine state
+    let state = 'normal'; // 'normal' | 'warn' | 'critical'
+
+    if ((hasMin && numericValue <= minVal) || (hasMax && numericValue >= maxVal)) {
+        state = 'critical';
+    } else if (hasMin && numericValue < minVal + warnMargin) {
+        state = 'warn';
+    } else if (hasMax && numericValue > maxVal - warnMargin) {
+        state = 'warn';
     } else {
-        $card.removeClass('widget-alert-blink');
-        if ($badge.length) $badge.hide();
+        state = 'normal';
+    }
+
+    // --- Apply visual states ---
+    $card.removeClass('widget-state-normal widget-state-warn widget-state-critical widget-alert-blink');
+
+    if (state === 'critical') {
+        $card.addClass('widget-state-critical');
+        if ($badge.length) {
+            $badge.show()
+                  .attr('data-state', 'critical')
+                  .html('<i class="fas fa-exclamation-triangle" style="font-size:0.7em;"></i> ALERT');
+        }
+    } else if (state === 'warn') {
+        $card.addClass('widget-state-warn');
+        if ($badge.length) {
+            $badge.show()
+                  .attr('data-state', 'warn')
+                  .html('<i class="fas fa-exclamation-circle" style="font-size:0.7em;"></i> WARN');
+        }
+    } else {
+        $card.addClass('widget-state-normal');
+        if ($badge.length) $badge.hide().removeAttr('data-state');
+    }
+
+    // --- Update gauge arc color to match alert state ---
+    const gaugeCircle = document.getElementById(`gauge-circle-${widgetKey}`);
+    const gaugeDef    = document.getElementById(`gradient-${widgetKey}`);
+    if (gaugeCircle && gaugeDef) {
+        const stops = gaugeDef.querySelectorAll('stop');
+        const colors = {
+            normal:   ['#10b981', '#34d399'],
+            warn:     ['#d97706', '#fbbf24'],
+            critical: ['#dc2626', '#f87171'],
+        };
+        const [c1, c2] = colors[state];
+        if (stops[0]) stops[0].style.stopColor = c1;
+        if (stops[1]) stops[1].style.stopColor = c2;
     }
 }
+
 
 // Helpers
 function updateLastSeenText(iso) {
