@@ -71,11 +71,68 @@
                              </div>
                         </div>
 
+                        {{-- ====== TELEMETRY LOG CONTROL ====== --}}
+                        <div class="mb-4 p-3 rounded" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+                            <label class="glass-label mb-3">
+                                <i class="fas fa-database mr-1" style="color: var(--primary-green-light);"></i>
+                                Telemetry Log Control
+                            </label>
+
+                            {{-- Enable / Disable Logging --}}
+                            <div class="custom-control custom-switch mb-3">
+                                <input type="checkbox" class="custom-control-input" id="logEnabled" name="log_enabled" value="1"
+                                       {{ ($user->log_enabled ?? true) ? 'checked' : '' }}>
+                                <label class="custom-control-label text-white" for="logEnabled">
+                                    Enable Data Logging
+                                    <small class="d-block text-muted">Record sensor telemetry from this user's devices into the database.</small>
+                                </label>
+                            </div>
+
+                            {{-- Log Interval --}}
+                            <div id="logIntervalGroup">
+                                <label class="glass-label" for="logInterval">
+                                    Log Interval
+                                    <small class="text-muted ml-1">(seconds)</small>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" id="logInterval" name="log_interval"
+                                           class="form-control glass-input"
+                                           min="0" max="3600" step="1"
+                                           value="{{ $user->log_interval ?? 0 }}"
+                                           placeholder="0">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" style="background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); color: #aaa;">sec</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    <strong>0</strong> = log on every value change &nbsp;|&nbsp;
+                                    <strong>60</strong> = max 1 log/minute per widget &nbsp;|&nbsp;
+                                    max <strong>3600</strong> (1 hour)
+                                </small>
+
+                                {{-- Quick presets --}}
+                                <div class="mt-2 d-flex flex-wrap" style="gap: 0.4rem;">
+                                    @foreach([['0','Every change'],['10','10s'],['30','30s'],['60','1 min'],['300','5 min'],['600','10 min'],['3600','1 hour']] as [$val,$label])
+                                    <button type="button" class="btn btn-sm log-preset-btn"
+                                            data-value="{{ $val }}"
+                                            style="padding: 2px 10px; font-size: 0.75rem;
+                                                   background: {{ ($user->log_interval ?? 0) == $val ? 'rgba(0,200,120,0.25)' : 'rgba(255,255,255,0.07)' }};
+                                                   border: 1px solid {{ ($user->log_interval ?? 0) == $val ? 'rgba(0,200,120,0.6)' : 'rgba(255,255,255,0.15)' }};
+                                                   color: #ddd; border-radius: 6px; transition: all 0.2s;">
+                                        {{ $label }}
+                                    </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="pt-3 border-top" style="border-color: rgba(255,255,255,0.1) !important;">
                             <button type="submit" class="btn glass-button glass-button-primary" style="width: auto;">
                                 Apply Global Override
                             </button>
                         </div>
+
                     </form>
                 </div>
             </div>
@@ -103,8 +160,87 @@
                         <span class="text-muted small">Account Creation:</span>
                         <span class="text-white small">{{ $user->created_at->format('M d, Y') }}</span>
                     </div>
+
+                    {{-- Log Status Summary --}}
+                    <div class="border-top mt-2 pt-2" style="border-color: rgba(255,255,255,0.08) !important;">
+                        <div class="glass-label mb-2">Log Status</div>
+                        <div class="mb-2 d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Data Logging:</span>
+                            @if($user->isLogEnabled())
+                                <span class="badge" style="background:rgba(0,200,120,0.2);color:#00c878;border:1px solid rgba(0,200,120,0.4);font-size:0.7rem;">
+                                    <i class="fas fa-circle mr-1" style="font-size:0.5rem;"></i>ACTIVE
+                                </span>
+                            @else
+                                <span class="badge" style="background:rgba(255,80,80,0.15);color:#ff6060;border:1px solid rgba(255,80,80,0.3);font-size:0.7rem;">
+                                    <i class="fas fa-circle mr-1" style="font-size:0.5rem;"></i>DISABLED
+                                </span>
+                            @endif
+                        </div>
+                        <div class="mb-2 d-flex justify-content-between">
+                            <span class="text-muted small">Log Interval:</span>
+                            <span class="text-white small font-weight-bold">
+                                @if(($user->log_interval ?? 0) == 0)
+                                    Every change
+                                @elseif($user->log_interval < 60)
+                                    {{ $user->log_interval }}s
+                                @elseif($user->log_interval < 3600)
+                                    {{ round($user->log_interval / 60, 1) }} min
+                                @else
+                                    {{ round($user->log_interval / 3600, 1) }} hr
+                                @endif
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ---- Preset buttons for log interval ----
+    const intervalInput = document.getElementById('logInterval');
+    const presetBtns   = document.querySelectorAll('.log-preset-btn');
+
+    function updatePresets(activeVal) {
+        presetBtns.forEach(btn => {
+            const isActive = String(btn.dataset.value) === String(activeVal);
+            btn.style.background = isActive ? 'rgba(0,200,120,0.25)' : 'rgba(255,255,255,0.07)';
+            btn.style.borderColor = isActive ? 'rgba(0,200,120,0.6)' : 'rgba(255,255,255,0.15)';
+        });
+    }
+
+    presetBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            intervalInput.value = this.dataset.value;
+            updatePresets(this.dataset.value);
+        });
+    });
+
+    // Sync active state when user types manually
+    intervalInput.addEventListener('input', function () {
+        updatePresets(this.value);
+    });
+
+    // ---- Dim log interval section when logging disabled ----
+    const logToggle       = document.getElementById('logEnabled');
+    const logIntervalGroup = document.getElementById('logIntervalGroup');
+
+    function syncLogToggle() {
+        if (logToggle.checked) {
+            logIntervalGroup.style.opacity = '1';
+            logIntervalGroup.style.pointerEvents = 'auto';
+        } else {
+            logIntervalGroup.style.opacity = '0.35';
+            logIntervalGroup.style.pointerEvents = 'none';
+        }
+    }
+
+    logToggle.addEventListener('change', syncLogToggle);
+    syncLogToggle(); // run on page load
+});
+</script>
+@endpush

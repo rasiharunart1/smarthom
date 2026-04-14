@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Console\Command;
 use App\Models\Device;
 use App\Models\DeviceLog;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
@@ -139,7 +140,7 @@ class MqttListener extends Command
         $deviceCode = $m[2];
         $widgetPart = trim($m[4]);
 
-        $device = Device::with('widget')
+        $device = Device::with(['widget', 'user'])
             ->where('device_code', $deviceCode)
             ->where('user_id', $userId)
             ->first();
@@ -193,14 +194,38 @@ class MqttListener extends Command
 
         if (!$device->isLstmActive()) {
 
-            DeviceLog::create([
-                'device_id' => $device->id,
-                'widget_key' => $widgetKey,
-                'event_type' => $direction === 'control' ? 'control' : 'telemetry',
-                'new_value' => (string)$newValue,
-                'source' => 'mqtt'
-            ]);
+            // --- Admin Log Control ---
+            // 1. Check if logging is enabled for this user
+            $user = $device->user ?? User::find($device->user_id);
 
+            if ($user && !$user->isLogEnabled()) {
+                $this->line("⏭️  Log skipped (disabled for user #{$device->user_id})");
+            } else {
+                // 2. Check log interval throttle (per device + widget)
+                $interval = $user ? $user->getLogInterval() : 0;
+                $shouldLog = true;
+
+                if ($interval > 0) {
+                    $throttleKey = "log_throttle:{$device->id}:{$widgetKey}";
+                    if (Cache::has($throttleKey)) {
+                        $shouldLog = false;
+                        $this->line("⏱️  Log throttled [{$widgetKey}] interval={$interval}s");
+                    } else {
+                        // Mark this widget as "just logged", expires after interval seconds
+                        Cache::put($throttleKey, true, $interval);
+                    }
+                }
+
+                if ($shouldLog) {
+                    DeviceLog::create([
+                        'device_id' => $device->id,
+                        'widget_key' => $widgetKey,
+                        'event_type' => $direction === 'control' ? 'control' : 'telemetry',
+                        'new_value' => (string)$newValue,
+                        'source' => 'mqtt'
+                    ]);
+                }
+            }
         }
 
         $this->info("✅ {$widgetKey} -> {$newValue}");

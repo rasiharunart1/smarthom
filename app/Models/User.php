@@ -26,6 +26,8 @@ class User extends Authenticatable
         'subscription_plan', // 'free', 'pro', 'enterprise'
         'subscription_expires_at',
         'lstm_allowed',
+        'log_enabled',   // Admin can toggle telemetry logging on/off
+        'log_interval',  // Minimum seconds between log entries (0 = every change)
     ];
 
     /**
@@ -50,6 +52,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'subscription_expires_at' => 'datetime',
             'lstm_allowed' => 'boolean',
+            'log_enabled' => 'boolean',
+            'log_interval' => 'integer',
         ];
     }
 
@@ -151,5 +155,25 @@ class User extends Authenticatable
     {
         if ($this->isAdmin()) return true;
         return (bool) ($this->getPlanConfig()->has_logs ?? false);
+    }
+
+    /**
+     * Check if telemetry logging is enabled for this user.
+     * Admin always has logging (returns true).
+     */
+    public function isLogEnabled(): bool
+    {
+        if ($this->isAdmin()) return true;
+        // Default to true if column not yet set (migration not run)
+        return (bool) ($this->log_enabled ?? true);
+    }
+
+    /**
+     * Get the minimum interval (seconds) between log entries per widget.
+     * 0 means log on every value change.
+     */
+    public function getLogInterval(): int
+    {
+        return (int) ($this->log_interval ?? 0);
     }
 }

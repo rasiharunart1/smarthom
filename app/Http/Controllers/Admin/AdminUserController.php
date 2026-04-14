@@ -24,16 +24,22 @@ class AdminUserController extends Controller
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'role' => 'required|in:user,admin',
-            'subscription_plan' => 'required|exists:plans,slug',
-            'subscription_expires_at' => 'nullable|date',
-            'lstm_allowed' => 'nullable|boolean',
+            'name'                   => 'required|string|max:255',
+            'email'                  => 'required|email|unique:users,email,' . $user->id,
+            'role'                   => 'required|in:user,admin',
+            'subscription_plan'      => 'required|exists:plans,slug',
+            'subscription_expires_at'=> 'nullable|date',
+            'lstm_allowed'           => 'nullable|boolean',
+            'log_enabled'            => 'nullable|boolean',
+            'log_interval'           => 'nullable|integer|min:0|max:3600',
         ]);
 
-        // Fix checkbox handling (if unchecked, it's missing from request, so default to 0)
+        // Checkbox fields: unchecked = absent from request → default false
         $validated['lstm_allowed'] = $request->has('lstm_allowed');
+        $validated['log_enabled']  = $request->has('log_enabled');
+
+        // Numeric field default
+        $validated['log_interval'] = (int) $request->input('log_interval', 0);
 
         $user->update($validated);
 
