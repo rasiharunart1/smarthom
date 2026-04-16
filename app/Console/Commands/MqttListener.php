@@ -39,7 +39,7 @@ class MqttListener extends Command
 
                 sleep(5);
 
-                $this->info("🔄 Reconnecting MQTT...");
+                $this->info(" Reconnecting MQTT...");
             }
         }
     }
