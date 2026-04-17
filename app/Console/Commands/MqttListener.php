@@ -150,6 +150,12 @@ class MqttListener extends Command
             return;
         }
 
+        // 🔒 Approval check — silently ignore messages from unapproved devices
+        if (!$device->isApproved()) {
+            $this->warn("⛔ Device {$deviceCode} not approved — message ignored");
+            return;
+        }
+
         if (!$device->widget) {
             $this->warn("❌ Widget config missing");
             return;

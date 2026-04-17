@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
         // Hardware Inventory
         Route::get('/devices', [AdminDeviceController::class, 'index'])->name('devices.index');
         Route::delete('/devices/{device}', [AdminDeviceController::class, 'destroy'])->name('devices.destroy');
+        Route::post('/devices/{device}/toggle-approval', [AdminDeviceController::class, 'toggleApproval'])->name('devices.toggle-approval');
 
         // Subscription Plan Governance
         Route::resource('plans', AdminPlanController::class);

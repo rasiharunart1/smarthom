@@ -15,7 +15,7 @@ class CheckDeviceOffline extends Command
 
     public function handle(): void
     {
-        $minutes = (int) $this->option('minutes');
+        $minutes  = (int) $this->option('minutes');
         $threshold = now()->subMinutes($minutes);
 
         // Find devices that are currently online but haven't sent heartbeat recently

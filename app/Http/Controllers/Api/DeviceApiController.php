@@ -29,9 +29,25 @@ class DeviceApiController extends Controller
 
         if (!$device) {
             return response()->json([
-                'success' => false,
-                'message' => 'Device not found. Please check your device code.'
+                'success'    => false,
+                'message'    => 'Device not found. Please check your device code.',
+                'error_code' => 'DEVICE_NOT_FOUND',
             ], 404);
+        }
+
+        // 🔒 Approval check — device must be approved by admin before it can operate
+        if (!$device->isApproved()) {
+            Log::warning('Unapproved device attempted auth', [
+                'device_code' => $device->device_code,
+                'user_id'     => $device->user_id,
+                'ip'          => $request->ip(),
+            ]);
+
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Device not approved. Please contact your administrator to activate this device.',
+                'error_code' => 'DEVICE_NOT_APPROVED',
+            ], 403);
         }
 
         // Mark device as online
@@ -480,7 +496,7 @@ class DeviceApiController extends Controller
     public function verifyLogin(Request $request, $deviceCode)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
@@ -499,5 +515,47 @@ class DeviceApiController extends Controller
         }
 
         return response()->json(['success' => false, 'message' => 'Invalid credentials'], 401);
+    }
+
+    /**
+     * Get the approval status of a device.
+     * Called by ESP32/ESP8266 at boot time to check if it can operate.
+     *
+     * GET /api/devices/{device_code}/approval-status
+     */
+    public function approvalStatus($deviceCode)
+    {
+        $device = Device::where('device_code', $deviceCode)
+            ->with('approvedBy:id,name')
+            ->first();
+
+        if (!$device) {
+            return response()->json([
+                'success'    => false,
+                'message'    => 'Device not found.',
+                'error_code' => 'DEVICE_NOT_FOUND',
+            ], 404);
+        }
+
+        if (!$device->isApproved()) {
+            return response()->json([
+                'success'     => true,
+                'device_code' => $device->device_code,
+                'is_approved' => false,
+                'approved_at' => null,
+                'approved_by' => null,
+                'message'     => 'Device is pending admin approval. Please contact your administrator.',
+                'error_code'  => 'DEVICE_NOT_APPROVED',
+            ]);
+        }
+
+        return response()->json([
+            'success'     => true,
+            'device_code' => $device->device_code,
+            'is_approved' => true,
+            'approved_at' => $device->approved_at?->toIso8601String(),
+            'approved_by' => $device->approvedBy?->name,
+            'message'     => 'Device is authorized and ready to operate.',
+        ]);
     }
 }

@@ -1148,12 +1148,11 @@
         }
 
         // ═══════════════════════════════════════════════════════
-        // ALERT THRESHOLD — Blink widget if value out of range
+        // ALERT THRESHOLD — Gradient state: normal, warn, critical
         // ═══════════════════════════════════════════════════════
         const alertTriggeredWidgets = new Set();
 
         function checkAlertThreshold(widgetKey, value) {
-            // Find the card element (has data-alert-* attributes)
             const $card = $(`[data-widget-key="${widgetKey}"]`);
             if (!$card.length) return;
 
@@ -1167,25 +1166,49 @@
             // Skip non-numeric values (e.g. toggle strings)
             if (isNaN(numVal)) return;
 
-            let isAlert = false;
-            if (rawMin !== '' && rawMin !== undefined && !isNaN(parseFloat(rawMin))) {
-                if (numVal < parseFloat(rawMin)) isAlert = true;
+            const hasMin = rawMin !== '' && rawMin !== undefined && !isNaN(parseFloat(rawMin));
+            const hasMax = rawMax !== '' && rawMax !== undefined && !isNaN(parseFloat(rawMax));
+
+            const minVal = hasMin ? parseFloat(rawMin) : null;
+            const maxVal = hasMax ? parseFloat(rawMax) : null;
+
+            // Warn zone = 20% of range (or 15% of single bound if only one side defined)
+            let warnMargin = 0;
+            if (hasMin && hasMax) {
+                warnMargin = (maxVal - minVal) * 0.20;
+            } else if (hasMax) {
+                warnMargin = Math.abs(maxVal) * 0.15;
+            } else if (hasMin) {
+                warnMargin = Math.abs(minVal) * 0.15;
             }
-            if (rawMax !== '' && rawMax !== undefined && !isNaN(parseFloat(rawMax))) {
-                if (numVal > parseFloat(rawMax)) isAlert = true;
+
+            let state = 'normal';
+
+            if ((hasMin && numVal <= minVal) || (hasMax && numVal >= maxVal)) {
+                state = 'critical';
+            } else if (hasMin && numVal < minVal + warnMargin) {
+                state = 'warn';
+            } else if (hasMax && numVal > maxVal - warnMargin) {
+                state = 'warn';
             }
 
             const $badge = $(`#alert-badge-${widgetKey}`);
 
-            if (isAlert) {
-                $card.addClass('widget-alert-active');
-                $badge.show();
-                // Toast notification — only first time per session per widget
+            $card.removeClass('widget-state-normal widget-state-warn widget-state-critical widget-alert-active');
+
+            if (state === 'critical') {
+                $card.addClass('widget-state-critical');
+                if ($badge.length) {
+                    $badge.show()
+                          .attr('data-state', 'critical')
+                          .html('<i class="fas fa-exclamation-triangle" style="font-size:0.7em;"></i> ALERT');
+                }
+
                 if (!alertTriggeredWidgets.has(widgetKey)) {
                     alertTriggeredWidgets.add(widgetKey);
                     const widgetName = $card.find('.widget-title span').first().text().trim();
-                    const minTxt = rawMin !== '' ? ` Min: ${rawMin}` : '';
-                    const maxTxt = rawMax !== '' ? ` Max: ${rawMax}` : '';
+                    const minTxt = hasMin ? ` Min: ${minVal}` : '';
+                    const maxTxt = hasMax ? ` Max: ${maxVal}` : '';
                     Swal.fire({
                         icon: 'warning',
                         title: `⚠ Alert: ${widgetName}`,
@@ -1199,11 +1222,33 @@
                         color: '#fca5a5'
                     });
                 }
-            } else {
-                $card.removeClass('widget-alert-active');
-                $badge.hide();
-                // Reset trigger so alert fires again next time
+            } else if (state === 'warn') {
+                $card.addClass('widget-state-warn');
+                if ($badge.length) {
+                    $badge.show()
+                          .attr('data-state', 'warn')
+                          .html('<i class="fas fa-exclamation-circle" style="font-size:0.7em;"></i> WARN');
+                }
                 alertTriggeredWidgets.delete(widgetKey);
+            } else {
+                $card.addClass('widget-state-normal');
+                if ($badge.length) $badge.hide().removeAttr('data-state');
+                alertTriggeredWidgets.delete(widgetKey);
+            }
+
+            // --- Update gauge arc color to match alert state ---
+            const gaugeCircle = document.getElementById(`gauge-circle-${widgetKey}`);
+            const gaugeDef    = document.getElementById(`gradient-${widgetKey}`);
+            if (gaugeCircle && gaugeDef) {
+                const stops = gaugeDef.querySelectorAll('stop');
+                const colors = {
+                    normal:   ['#10b981', '#34d399'],
+                    warn:     ['#d97706', '#fbbf24'],
+                    critical: ['#dc2626', '#f87171'],
+                };
+                const [c1, c2] = colors[state];
+                if (stops[0]) stops[0].style.stopColor = c1;
+                if (stops[1]) stops[1].style.stopColor = c2;
             }
         }
 

@@ -23,7 +23,10 @@ Route::prefix('devices')->group(function(){
     Route::get('/{device_code}/logs', [DeviceApiController::class, 'getLogs']);
     
     Route::get('/{device_code}/status', [DeviceApiController::class, 'getStatus']);
-    
+
+    // Approval status — ESP32/ESP8266 checks this at boot time
+    Route::get('/{device_code}/approval-status', [DeviceApiController::class, 'approvalStatus']);
+
     // Provisioning: Get MQTT Creds
     Route::get('/{device_code}/mqtt-config', [\App\Http\Controllers\Api\DeviceProvisioningController::class, 'getMqttConfig']);
 });

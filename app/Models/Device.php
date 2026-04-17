@@ -20,13 +20,18 @@ class Device extends Model
         'metadata',
         'lstm_enabled',
         'lstm_config',
+        'is_approved',
+        'approved_at',
+        'approved_by',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
-        'last_seen_at' => 'datetime',
-        'lstm_enabled' => 'boolean',
+        'metadata'    => 'array',
+        'last_seen_at'=> 'datetime',
+        'lstm_enabled'=> 'boolean',
         'lstm_config' => 'array',
+        'is_approved' => 'boolean',
+        'approved_at' => 'datetime',
     ];
 
     public function getRouteKeyName()
@@ -247,5 +252,49 @@ class Device extends Model
             'threshold_low' => 30,
             'threshold_high' => 80
         ];
+    }
+
+    // ─────────────────────────────────────────
+    // Approval System
+    // ─────────────────────────────────────────
+
+    /**
+     * Check if this device has been approved by an administrator.
+     */
+    public function isApproved(): bool
+    {
+        return (bool) $this->is_approved;
+    }
+
+    /**
+     * Approve this device. Records who approved it and when.
+     */
+    public function approve(User $admin): void
+    {
+        $this->update([
+            'is_approved' => true,
+            'approved_at' => now(),
+            'approved_by' => $admin->id,
+        ]);
+    }
+
+    /**
+     * Revoke approval — device will no longer be able to connect or publish data.
+     */
+    public function revoke(): void
+    {
+        $this->update([
+            'is_approved' => false,
+            'approved_at' => null,
+            'approved_by' => null,
+        ]);
+    }
+
+    /**
+     * Relationship: the admin who approved this device.
+     */
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }
