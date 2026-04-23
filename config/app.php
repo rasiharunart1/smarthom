@@ -123,4 +123,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Registration Code
+    |--------------------------------------------------------------------------
+    |
+    | A secret code required to register a new admin account via /admin/register.
+    | Must be accessed via config('app.admin_registration_code') — NOT env() —
+    | so it works correctly when config is cached (php artisan config:cache).
+    |
+    */
+
+    'admin_registration_code' => env('ADMIN_REGISTRATION_CODE'),
+
 ];

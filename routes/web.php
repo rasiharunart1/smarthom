@@ -61,6 +61,22 @@ Route::middleware('auth')->group(function () {
 
     // Streaming Logic
     Route::get('/stream/device/{deviceCode}', function ($deviceCode) {
+        // [SECURITY FIX H-3] Verify the authenticated user owns or has access to this device
+        $device = \App\Models\Device::where('device_code', $deviceCode)->first();
+
+        if (!$device) {
+            abort(404, 'Device not found.');
+        }
+
+        $user = auth()->user();
+        $isOwner   = $device->user_id === $user->id;
+        $isAdmin   = $user->isAdmin();
+        $isShared  = $device->shares()->where('shared_with_user_id', $user->id)->exists();
+
+        if (!$isOwner && !$isAdmin && !$isShared) {
+            abort(403, 'You do not have access to stream this device.');
+        }
+
         return response()->stream(function () use ($deviceCode) {
             header('Content-Type: text/event-stream');
             header('Cache-Control: no-cache');
@@ -75,10 +91,10 @@ Route::middleware('auth')->group(function () {
 
                 foreach ($widgets as $widget) {
                     $data = json_encode([
-                        'key' => $widget->key,
-                        'value' => $widget->value,
-                        'type' => $widget->type,
-                        'updated_at' => $widget->updated_at->toISOString()
+                        'key'        => $widget->key,
+                        'value'      => $widget->value,
+                        'type'       => $widget->type,
+                        'updated_at' => $widget->updated_at->toISOString(),
                     ]);
                     echo "data: {$data}\n\n";
                 }
@@ -89,7 +105,7 @@ Route::middleware('auth')->group(function () {
                 if (connection_aborted()) break;
             }
         }, 200, [
-            'Cache-Control' => 'no-cache',
+            'Cache-Control'    => 'no-cache',
             'X-Accel-Buffering' => 'no',
         ]);
     });
@@ -111,8 +127,6 @@ Route::middleware('auth')->group(function () {
         // Subscription Plan Governance
         Route::resource('plans', AdminPlanController::class);
 
-        // Settings
-        Route::get('/settings', [\App\Http\Controllers\Admin\AdminSettingController::class, 'index'])->name('settings.index');
         // Settings
         Route::get('/settings', [\App\Http\Controllers\Admin\AdminSettingController::class, 'index'])->name('settings.index');
         Route::put('/settings', [\App\Http\Controllers\Admin\AdminSettingController::class, 'update'])->name('settings.update');

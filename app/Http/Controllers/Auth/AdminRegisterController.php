@@ -35,7 +35,8 @@ class AdminRegisterController extends Controller
             'auth_code' => ['required', 'string'],
         ]);
 
-        if ($request->auth_code !== env('ADMIN_REGISTRATION_CODE')) {
+        // [SECURITY FIX C-5/L-4] Use config() not env() — env() returns null when config is cached
+        if ($request->auth_code !== config('app.admin_registration_code')) {
             return back()->withErrors([
                 'auth_code' => 'The provided authentication code is invalid.',
             ])->withInput($request->except('auth_code')); // Don't flash valid auth code if possible, or just all except password

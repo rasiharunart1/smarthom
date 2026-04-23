@@ -584,9 +584,56 @@ class WidgetController extends Controller
             }
 
             $validated = $request->validate([
-                'value' => 'required',
-                'silent' => 'nullable|boolean'
+                'value'  => 'required',
+                'silent' => 'nullable|boolean',
             ]);
+
+            // [SECURITY FIX H-5] Validate value based on widget type to prevent
+            // Stored XSS, out-of-range values, or abnormally large payloads.
+            $rawValue = $validated['value'];
+            $widgetType = $widget['type'] ?? 'text';
+            $wMin = $widget['min'] ?? 0;
+            $wMax = $widget['max'] ?? 100;
+
+            switch ($widgetType) {
+                case 'toggle':
+                    if (!in_array((string) $rawValue, ['0', '1', 'true', 'false', 'on', 'off'], true)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Invalid value for toggle widget. Expected: 0 or 1.",
+                        ], 422);
+                    }
+                    break;
+
+                case 'slider':
+                case 'gauge':
+                    if (!is_numeric($rawValue)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Invalid value for {$widgetType} widget. Expected a numeric value.",
+                        ], 422);
+                    }
+                    $numVal = (float) $rawValue;
+                    if ($numVal < (float) $wMin || $numVal > (float) $wMax) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Value {$rawValue} is out of range [{$wMin}, {$wMax}] for {$widgetType} widget.",
+                        ], 422);
+                    }
+                    break;
+
+                case 'text':
+                case 'chart':
+                default:
+                    // Limit text length to prevent DB abuse
+                    if (is_string($rawValue) && mb_strlen($rawValue) > 500) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Value exceeds maximum allowed length of 500 characters.',
+                        ], 422);
+                    }
+                    break;
+            }
 
             $oldValue = $widget['value'];
 

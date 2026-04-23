@@ -21,7 +21,9 @@ Route::middleware('guest')->group(function () {
     Route::get('admin/register', [AdminRegisterController::class, 'create'])
         ->name('admin.register');
 
-    Route::post('admin/register', [AdminRegisterController::class, 'store']);
+    // [SECURITY FIX C-5] Rate limit: max 5 attempts per 10 minutes per IP to prevent auth_code brute-force
+    Route::post('admin/register', [AdminRegisterController::class, 'store'])
+        ->middleware('throttle:5,10');
 
     Route::get('admin/login', function () {
         return view('auth.login-admin');

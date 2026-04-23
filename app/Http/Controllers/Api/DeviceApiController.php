@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Device;
+use App\Models\DeviceLog;
 use App\Events\WidgetUpdated;
 use App\Events\DeviceStatusUpdated;
 use Illuminate\Http\Request;
@@ -53,55 +54,60 @@ class DeviceApiController extends Controller
         // Mark device as online
         $device->markAsOnline();
 
-        // 🚀 Broadcast device status
-        // broadcast(new DeviceStatusUpdated(
-        //     $device->device_code,
-        //     'online',
-        //     now()->toIso8601String(),
-        //     true
-        // ));
+        // [SECURITY FIX C-1] Issue a Sanctum API token scoped to this device.
+        // All subsequent API calls from the device MUST include this token as:
+        //   Authorization: Bearer <token>
+        // Revoke any existing device tokens to avoid stale tokens.
+        $device->user->tokens()->where('name', 'device:' . $device->device_code)->delete();
+        $plainTextToken = $device->user->createToken(
+            'device:' . $device->device_code,
+            ['device:read', 'device:write'],
+            now()->addDays(30)
+        )->plainTextToken;
 
         // Get MQTT credentials from config (NOT env() — env() returns null when config is cached!)
         $mqttConfig = [
-            'host' => config('mqtt.host'),
-            'port' => (int) config('mqtt.port', 8883),
+            'host'     => config('mqtt.host'),
+            'port'     => (int) config('mqtt.port', 8883),
             'username' => config('mqtt.username'),
             'password' => config('mqtt.password'),
-            'use_tls' => config('mqtt.use_tls', true),
+            'use_tls'  => config('mqtt.use_tls', true),
         ];
 
         // Log authentication
         Log::info('Device authenticated', [
             'device_code' => $device->device_code,
             'device_name' => $device->name,
-            'user_id' => $device->user_id,
-            'user_name' => $device->user->name,
-            'ip' => $request->ip(),
-            'timestamp' => now()->toIso8601String()
+            'user_id'     => $device->user_id,
+            'user_name'   => $device->user->name,
+            'ip'          => $request->ip(),
+            'timestamp'   => now()->toIso8601String(),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Authentication successful',
-            'device' => [
-                'id' => $device->id,
-                'code' => $device->device_code,
-                'name' => $device->name,
-                'user_id' => $device->user_id,
+            'device'  => [
+                'id'        => $device->id,
+                'code'      => $device->device_code,
+                'name'      => $device->name,
+                'user_id'   => $device->user_id,
                 'user_name' => $device->user->name,
             ],
-            'mqtt' => $mqttConfig,
-            'topics' => [
-                'subscribe' => "users/{$device->user_id}/devices/{$device->device_code}/control/#",
+            // [SECURITY FIX C-1] Return Sanctum token — firmware MUST store and use this
+            'api_token' => $plainTextToken,
+            'mqtt'      => $mqttConfig,
+            'topics'    => [
+                'subscribe'      => "users/{$device->user_id}/devices/{$device->device_code}/control/#",
                 'publish_prefix' => "users/{$device->user_id}/devices/{$device->device_code}/sensors/",
-                'base' => "users/{$device->user_id}/devices/{$device->device_code}"
+                'base'           => "users/{$device->user_id}/devices/{$device->device_code}",
             ],
             'api' => [
-                'base_url' => url('/api/devices'),
-                'widgets_url' => url("/api/devices/{$device->device_code}/widgets"),
+                'base_url'      => url('/api/devices'),
+                'widgets_url'   => url("/api/devices/{$device->device_code}/widgets"),
                 'heartbeat_url' => url("/api/devices/{$device->device_code}/heartbeat"),
             ],
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 
@@ -199,30 +205,21 @@ class DeviceApiController extends Controller
             ], 404);
         }
 
-        $logFile = storage_path('logs/laravel.log');
-        $logs = [];
+        // [SECURITY FIX C-3] Replaced raw laravel.log file reading with structured DB query.
+        // The old implementation exposed internal stack traces, query SQL, and other users' data.
+        $limit = min((int) $request->query('limit', 50), 100);
 
-        if (file_exists($logFile)) {
-            $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            $lines = array_reverse($lines);
-
-            $count = 0;
-            foreach ($lines as $line) {
-                if ($count >= 50) break;
-
-                if (stripos($line, $deviceCode) !== false) {
-                    $logs[] = $line;
-                    $count++;
-                }
-            }
-        }
+        $logs = DeviceLog::where('device_id', $device->id)
+            ->latest()
+            ->limit($limit)
+            ->get(['id', 'widget_key', 'new_value', 'event_type', 'created_at']);
 
         return response()->json([
-            'success' => true,
+            'success'     => true,
             'device_code' => $deviceCode,
-            'logs' => $logs,
-            'count' => count($logs),
-            'timestamp' => now()->toIso8601String()
+            'logs'        => $logs,
+            'count'       => $logs->count(),
+            'timestamp'   => now()->toIso8601String(),
         ]);
     }
 

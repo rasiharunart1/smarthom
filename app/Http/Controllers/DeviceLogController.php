@@ -9,6 +9,7 @@ use App\Models\DeviceLogHourly;
 use App\Models\DeviceLogDaily;
 use App\Models\Widget;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
 
@@ -17,6 +18,8 @@ class DeviceLogController extends Controller
     // View Logs Page
     public function index(Request $request, Device $device)
     {
+        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        Gate::authorize('view', $device);
         $query = DeviceLog::where('device_id', $device->id);
 
         if ($request->has('start_date') && $request->has('end_date')) {
@@ -55,6 +58,8 @@ class DeviceLogController extends Controller
     // API for Chart History
     public function history(Request $request, Device $device)
     {
+        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        Gate::authorize('view', $device);
         $keys = explode(',', $request->query('keys', ''));
         $period = $request->query('period', '24h');
 
@@ -208,14 +213,18 @@ class DeviceLogController extends Controller
     // Export to CSV (Pivoted Format: Timestamp, Widget1, Widget2,...)
     public function export(Request $request, Device $device)
     {
-        $filename = "logs_{$device->device_code}_". date('Ymd_His'). ".csv";
-        
+        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        Gate::authorize('view', $device);
+
+        $filename = "logs_{$device->device_code}_" . date('Ymd_His') . ".csv";
+
         $headers = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=$filename",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
+            "Content-type"        => "text/csv",
+            // [SECURITY FIX M-7] Filename is quoted to prevent header injection
+            "Content-Disposition" => "attachment; filename=\"$filename\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0",
         ];
 
         $callback = function() use ($device, $request) {
@@ -325,6 +334,8 @@ class DeviceLogController extends Controller
     // Store (Manual Log Entry)
     public function store(Request $request, Device $device)
     {
+        // [SECURITY FIX H-6] Only device owner or admin can manually add log entries
+        Gate::authorize('update', $device);
         $request->validate([
             'widget_key' => 'required|string|max:50',
             'value' => 'required',
@@ -346,6 +357,8 @@ class DeviceLogController extends Controller
     // Destroy (Single Log)
     public function destroy(Device $device, $logId)
     {
+        // [SECURITY FIX H-6] Only device owner or admin can delete logs
+        Gate::authorize('update', $device);
         $log = DeviceLog::where('device_id', $device->id)->findOrFail($logId);
         $log->delete();
 
@@ -355,6 +368,8 @@ class DeviceLogController extends Controller
     // Clear (Bulk Delete)
     public function clear(Request $request, Device $device)
     {
+        // [SECURITY FIX H-6] Only device owner or admin can bulk-clear logs
+        Gate::authorize('update', $device);
         $query = DeviceLog::where('device_id', $device->id);
 
         if ($request->has('start_date') && $request->has('end_date')) {

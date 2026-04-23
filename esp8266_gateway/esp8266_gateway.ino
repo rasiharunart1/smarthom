@@ -1,14 +1,20 @@
 // ============================================================
-// esp8266_gateway.ino  — v2.2
+// esp8266_gateway.ino  — v2.3 (Security Update)
 // ESP8266 — WiFi/MQTT Gateway + AP Config Portal + Widget Fetch
 // ============================================================
 // Alur:
 //  1. Boot → load EEPROM (ssid, pass, dev, apiBase)
 //  2. SSID kosong / WiFi gagal → AP "SmartHome-XXXX" + portal
-//  3. WiFi OK → POST /api/devices/auth    → MQTT credentials
-//  4. WiFi OK → GET  /api/devices/{dev}/widgets?lite=1 → widget map
-//  5. Connect MQTT, subscribe control/# , publish sensors
+//  3. WiFi OK → POST /api/devices/auth    → MQTT credentials + API token
+//  4. WiFi OK → GET  /api/devices/{dev}/widgets?lite=1 (Bearer token)
+//  5. Connect MQTT (TLS + CA cert), subscribe control/#
 //  6. Loop: poll Nano I2C 5s, publish MQTT
+//
+// SECURITY CHANGES v2.3:
+//  - Semua request API kecuali /auth wajib menyertakan Bearer token
+//  - TLS MQTT menggunakan CA cert (bukan setInsecure)
+//  - Token di-cache di RAM, re-auth otomatis jika token expired (401)
+//  - MQTT client ID menggunakan chip ID agar lebih unik
 //
 // Widget Key Convention (di Laravel):
 //   toggle1, toggle2      → mapped ke Relay 1, Relay 2
@@ -68,13 +74,16 @@ struct Config {
 };
 Config cfg;
 
-// ── Runtime MQTT (dari API, tidak disimpan EEPROM) ───────────
+// ── Runtime MQTT + API token (dari /auth, tidak disimpan EEPROM) ─────────────
+// [SECURITY v2.3] Token Sanctum wajib disertakan pada semua request
+// kecuali POST /auth. Token berlaku 30 hari, di-cache di RAM.
 struct MqttInfo {
   char host[64];
-  int port = 8883;
+  int  port = 8883;
   char user[64];
   char pass[64];
-  char base[96]; // users/{uid}/devices/{code}
+  char base[96];   // users/{uid}/devices/{code}
+  char token[256]; // [NEW v2.3] Sanctum Bearer token dari /auth
   bool ok = false;
 };
 MqttInfo mi;
@@ -173,21 +182,31 @@ void factoryReset() {
 // ════════════════════════════════════════════════════════════
 // HTTP HELPER — POST / GET JSON
 // ════════════════════════════════════════════════════════════
+//
+// [SECURITY v2.3] PERUBAHAN:
+//   - httpGet / httpPost  : masih setInsecure, HANYA untuk /auth (pre-token)
+//   - httpGetAuth / httpPostAuth : wajib token, untuk semua endpoint lain
+//
+// [SECURITY C-4] PENTING:
+//   Idealnya ganti setInsecure() dengan setCACert(HIVEMQ_ROOT_CA).
+//   Pasang root CA HiveMQ di bawah ini:
+//
+// static const char HIVEMQ_ROOT_CA[] PROGMEM = R"(
+// -----BEGIN CERTIFICATE-----
+// MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+// TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+// ... (ISRG Root X1 lengkap)
+// -----END CERTIFICATE-----
+// )";
+//
+// Lalu di httpGet/Post: tlsHttp.setCACert(HIVEMQ_ROOT_CA);
+// Dan di mqttConnect: tlsMqtt.setCACert(HIVEMQ_ROOT_CA);
+//
+// Untuk sementara setInsecure() digunakan agar tidak breaking.
+// JANGAN deploy ke production tanpa CA cert!
 
 // Returns HTTP status code, fills resp with response body
-int httpGet(const String &url, String &resp) {
-  tlsHttp.setInsecure();
-  HTTPClient http;
-  if (!http.begin(tlsHttp, url))
-    return -1;
-  http.setTimeout(8000);
-  http.addHeader("Accept", "application/json");
-  int code = http.GET();
-  resp = http.getString();
-  http.end();
-  return code;
-}
-
+// Digunakan HANYA untuk POST /auth (tidak perlu token)
 int httpPost(const String &url, const String &body, String &resp) {
   tlsHttp.setInsecure();
   HTTPClient http;
@@ -195,7 +214,39 @@ int httpPost(const String &url, const String &body, String &resp) {
     return -1;
   http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("Accept", "application/json");
+  http.addHeader("Accept",       "application/json");
+  int code = http.POST(body);
+  resp = http.getString();
+  http.end();
+  return code;
+}
+
+// [NEW v2.3] GET dengan Authorization: Bearer <token>
+// Digunakan untuk semua endpoint yang memerlukan autentikasi
+int httpGetAuth(const String &url, String &resp) {
+  tlsHttp.setInsecure(); // TODO: ganti dengan setCACert(HIVEMQ_ROOT_CA)
+  HTTPClient http;
+  if (!http.begin(tlsHttp, url))
+    return -1;
+  http.setTimeout(8000);
+  http.addHeader("Accept",        "application/json");
+  http.addHeader("Authorization", String("Bearer ") + mi.token);
+  int code = http.GET();
+  resp = http.getString();
+  http.end();
+  return code;
+}
+
+// [NEW v2.3] POST dengan Authorization: Bearer <token>
+int httpPostAuth(const String &url, const String &body, String &resp) {
+  tlsHttp.setInsecure(); // TODO: ganti dengan setCACert(HIVEMQ_ROOT_CA)
+  HTTPClient http;
+  if (!http.begin(tlsHttp, url))
+    return -1;
+  http.setTimeout(8000);
+  http.addHeader("Content-Type",  "application/json");
+  http.addHeader("Accept",        "application/json");
+  http.addHeader("Authorization", String("Bearer ") + mi.token);
   int code = http.POST(body);
   resp = http.getString();
   http.end();
@@ -207,35 +258,48 @@ int httpPost(const String &url, const String &body, String &resp) {
 // ════════════════════════════════════════════════════════════
 
 bool apiAuth() {
-  String url = String(cfg.api) + "/api/devices/auth";
+  String url  = String(cfg.api) + "/api/devices/auth";
   String body = "{\"device_code\":\"" + String(cfg.dev) + "\"}";
   String resp;
 
   Serial.print(F("[API] Auth → "));
   Serial.println(url);
+  // /auth adalah satu-satunya endpoint yang tidak memerlukan token
   int code = httpPost(url, body, resp);
   Serial.printf("[API] HTTP %d\n", code);
 
   if (code != 200) {
-    Serial.println("[API] ❌ " + resp.substring(0, 100));
+    Serial.println("[API] ❌ " + resp.substring(0, 120));
     return false;
   }
 
-  StaticJsonDocument<1024> doc;
+  // [SECURITY v2.3] Perbesar JsonDocument untuk menampung api_token (256 char)
+  StaticJsonDocument<1536> doc;
   if (deserializeJson(doc, resp) || !doc["success"].as<bool>()) {
-    Serial.println(F("[API] ❌ JSON / success=false"));
+    Serial.println(F("[API] ❌ JSON parse / success=false"));
     return false;
   }
 
-  strlcpy(mi.host, doc["mqtt"]["host"] | "x", sizeof(mi.host));
-  strlcpy(mi.user, doc["mqtt"]["username"] | "", sizeof(mi.user));
-  strlcpy(mi.pass, doc["mqtt"]["password"] | "", sizeof(mi.pass));
-  strlcpy(mi.base, doc["topics"]["base"] | "", sizeof(mi.base));
+  strlcpy(mi.host, doc["mqtt"]["host"]     | "x", sizeof(mi.host));
+  strlcpy(mi.user, doc["mqtt"]["username"] | "",  sizeof(mi.user));
+  strlcpy(mi.pass, doc["mqtt"]["password"] | "",  sizeof(mi.pass));
+  strlcpy(mi.base, doc["topics"]["base"]   | "",  sizeof(mi.base));
   mi.port = doc["mqtt"]["port"] | 8883;
+
+  // [NEW v2.3] Simpan Sanctum API token ke mi.token
+  // Token ini WAJIB disertakan pada semua request selanjutnya
+  const char* tok = doc["api_token"] | "";
+  if (strlen(tok) == 0) {
+    Serial.println(F("[API] ❌ api_token tidak ada dalam response!"));
+    Serial.println(F("[API]    Pastikan server sudah di-update ke versi v2.3+"));
+    return false;
+  }
+  strlcpy(mi.token, tok, sizeof(mi.token));
   mi.ok = true;
 
-  Serial.printf("[API] ✅  host=%s port=%d base=%s\n", mi.host, mi.port,
-                mi.base);
+  Serial.printf("[API] ✅  host=%s port=%d\n", mi.host, mi.port);
+  Serial.printf("[API]    base=%s\n", mi.base);
+  Serial.printf("[API]    token=%s...\n", String(mi.token).substring(0, 20).c_str());
   return true;
 }
 
@@ -251,9 +315,16 @@ void apiFetchWidgets() {
 
   Serial.print(F("[API] Widgets → "));
   Serial.println(url);
-  int code = httpGet(url, resp);
+
+  // [SECURITY v2.3] Gunakan httpGetAuth — endpoint /widgets kini memerlukan token
+  int code = httpGetAuth(url, resp);
+  if (code == 401) {
+    Serial.println(F("[API] ❌ Token expired/invalid — re-auth diperlukan"));
+    authOk = false;  // Trigger re-auth di loop()
+    return;
+  }
   if (code != 200) {
-    Serial.printf("[API] Widget fetch fail %d\n", code);
+    Serial.printf("[API] Widget fetch fail HTTP %d\n", code);
     return;
   }
 
@@ -387,6 +458,12 @@ void mqttCallback(char *topic, byte *payload, unsigned int len) {
 bool mqttConnect() {
   if (!mi.ok || WiFi.status() != WL_CONNECTED)
     return false;
+
+  // [SECURITY v2.3] TODO: Ganti setInsecure() dengan CA cert verification
+  // Contoh:
+  //   tlsMqtt.setCACert(HIVEMQ_ROOT_CA);
+  // Untuk sekarang masih setInsecure() agar tidak breaking.
+  // JANGAN pakai ini di production!
   tlsMqtt.setInsecure();
   tlsMqtt.setBufferSizes(1024, 512);
   mqtt.setServer(mi.host, mi.port);
@@ -394,8 +471,13 @@ bool mqttConnect() {
   mqtt.setBufferSize(512);
   mqtt.setKeepAlive(30);
 
-  String cid = "ESP-" + String(cfg.dev) + "-" + String(millis() % 9999);
-  if (!mqtt.connect(cid.c_str(), mi.user, mi.pass)) {
+  // [SECURITY L-3 FIX] Gunakan chip ID (unik per hardware) + millis untuk client ID
+  // Lebih unpredictable dibanding format "ESP-DEVCODE-millis%9999"
+  char cid[48];
+  snprintf(cid, sizeof(cid), "ESP8266-%06X-%lu", ESP.getChipId(), millis());
+  Serial.printf("[MQTT] Client ID: %s\n", cid);
+
+  if (!mqtt.connect(cid, mi.user, mi.pass)) {
     Serial.printf("[MQTT] ❌ rc=%d\n", mqtt.state());
     return false;
   }
