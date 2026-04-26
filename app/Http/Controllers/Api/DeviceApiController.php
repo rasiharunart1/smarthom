@@ -127,6 +127,11 @@ class DeviceApiController extends Controller
             ], 404);
         }
 
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
         // Update last seen
         $device->markAsOnline();
 
@@ -163,10 +168,8 @@ class DeviceApiController extends Controller
      *
      * GET /api/devices/{device_code}/status
      */
-    public function getStatus($deviceCode)
+    public function getStatus(Request $request, $deviceCode)
     {
-        
-        // $device = Device::where('device_code', $deviceCode)->first();
         $device = Device::where('device_code', $deviceCode)
             ->with('user')
             ->first();
@@ -176,6 +179,11 @@ class DeviceApiController extends Controller
                 'success' => false,
                 'message' => 'Device not found'
             ], 404);
+        }
+
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
     
         return response()->json([
@@ -203,6 +211,11 @@ class DeviceApiController extends Controller
                 'success' => false,
                 'message' => 'Device not found'
             ], 404);
+        }
+
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
         // [SECURITY FIX C-3] Replaced raw laravel.log file reading with structured DB query.
@@ -239,6 +252,11 @@ class DeviceApiController extends Controller
                 'success' => false,
                 'message' => 'Device not found'
             ], 404);
+        }
+
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
         // Get widgets from JSON column
@@ -323,6 +341,11 @@ class DeviceApiController extends Controller
                 'success' => false,
                 'message' => 'Device not found'
             ], 404);
+        }
+
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
         if (!$device->widget) {
@@ -421,6 +444,11 @@ class DeviceApiController extends Controller
             ], 404);
         }
 
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
         if (!$device->widget) {
             return response()->json([
                 'success' => false,
@@ -502,16 +530,15 @@ class DeviceApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Device not found'], 404);
         }
 
+        // [SECURITY FIX I-10] Use generic error to prevent user/device ownership enumeration
         if (\Illuminate\Support\Facades\Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = \Illuminate\Support\Facades\Auth::user();
             if ($device->user_id === $user->id) {
                 return response()->json(['success' => true]);
-            } else {
-                return response()->json(['success' => false, 'message' => 'Device belongs to another user'], 403);
             }
         }
 
-        return response()->json(['success' => false, 'message' => 'Invalid credentials'], 401);
+        return response()->json(['success' => false, 'message' => 'Authentication failed'], 401);
     }
 
     /**

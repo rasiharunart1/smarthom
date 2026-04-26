@@ -47,7 +47,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => 43200, // [SECURITY FIX Q-2] 30 days in minutes — tokens expire after this
 
     /*
     |--------------------------------------------------------------------------

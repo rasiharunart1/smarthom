@@ -15,6 +15,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// [SECURITY FIX C-1] MQTT credentials served via AJAX — never embedded in HTML source
+Route::middleware('auth')->get('/mqtt/credentials', [\App\Http\Controllers\MqttTokenController::class, 'credentials'])
+    ->name('mqtt.credentials');
+
 Route::middleware('auth')->group(function () {
     // User Routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

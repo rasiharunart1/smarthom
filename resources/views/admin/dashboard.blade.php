@@ -198,30 +198,24 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Admin Governance Live System: Initializing...');
             
-            const mqttConfig = {
-                host: '{{ config("mqtt.host") }}',
-                port: 8884,
-                path: '/mqtt',
-                protocol: 'wss',
-                username: {!! json_encode(config("mqtt.username")) !!},
-                password: {!! json_encode(config("mqtt.password")) !!}
-            };
-
             if (!window.mqtt) {
                 console.error('❌ MQTT.js library not loaded!');
                 return;
             }
 
-            console.log('📡 Connecting to MQTT Bridge:', mqttConfig.host);
+            // [SECURITY FIX C-1] Fetch MQTT credentials via authenticated AJAX
+            $.getJSON('{{ route("mqtt.credentials") }}')
+                .done(function(creds) {
+                    console.log('📡 Connecting to MQTT Bridge:', creds.host);
 
-            const client = window.mqtt.connect(`wss://${mqttConfig.host}:${mqttConfig.port}${mqttConfig.path}`, {
-                clientId: 'admin_dash_' + Math.random().toString(16).substr(2, 8),
-                username: mqttConfig.username,
-                password: mqttConfig.password,
-                keepalive: 60,
-                clean: true,
-                rejectUnauthorized: false
-            });
+                    const client = window.mqtt.connect(`wss://${creds.host}:${creds.port}${creds.path}`, {
+                        clientId: 'admin_dash_' + Math.random().toString(16).substr(2, 8),
+                        username: creds.username,
+                        password: creds.password,
+                        keepalive: 60,
+                        clean: true,
+                        rejectUnauthorized: false
+                    });
 
             client.on('connect', () => {
                 console.log('✅ Admin Connected: Global Oversight Active');
@@ -269,6 +263,10 @@
 
             client.on('error', (err) => console.error('❌ MQTT Admin Error:', err));
             client.on('offline', () => console.warn('⚠️ MQTT Admin Offline'));
+                })
+                .fail(function(xhr) {
+                    console.error('❌ Failed to fetch MQTT credentials:', xhr.status);
+                });
         });
 
         // Global Stats fallback

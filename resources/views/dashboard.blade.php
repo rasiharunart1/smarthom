@@ -984,37 +984,41 @@
             if (typeof window.mqttClient !== 'undefined') {
                 console.log('🚀 Dashboard: Initializing MQTT Session...');
                 
-                // Safely pass credentials using json_encode
-                const mqttUser = {!! json_encode(config("mqtt.username") ?: env("MQTT_USERNAME")) !!};
-                const mqttPass = {!! json_encode(config("mqtt.password") ?: env("MQTT_PASSWORD")) !!};
+                // [SECURITY FIX C-1] Fetch MQTT credentials via authenticated AJAX
+                // Credentials are NEVER embedded in HTML source code.
+                $.getJSON('{{ route("mqtt.credentials") }}')
+                    .done(function(creds) {
+                        console.log('📡 MQTT credentials loaded, connecting...');
+                        
+                        window.mqttClient.connect({
+                            host: teweMqttConfig.host,
+                            port: teweMqttConfig.port,
+                            username: creds.username,
+                            password: creds.password,
+                            rejectUnauthorized: false
+                        });
 
-                console.log('📡 Attempting connection with user:', mqttUser ? 'YES' : 'NO');
-                
-                window.mqttClient.connect({
-                    host: teweMqttConfig.host,
-                    port: teweMqttConfig.port,
-                    username: mqttUser,
-                    password: mqttPass,
-                    rejectUnauthorized: false
-                });
+                        const client = window.mqttClient;
 
-                const client = window.mqttClient;
+                        // Override/Add listeners to the global client
+                        client.onConnect = () => {
+                            console.log('✅ Connected to HiveMQ Cloud');
 
-                // Override/Add listeners to the global client
-                client.onConnect = () => {
-                    console.log('✅ Connected to HiveMQ Cloud');
+                            // Subscribe to sensor feedback (confirmed state from device)
+                            const sensorTopic = `users/${userId}/devices/${deviceCode}/sensors/#`;
+                            client.subscribe(sensorTopic, (topic, payload) => {
+                                handleSensorMessage(topic, payload);
+                            });
 
-                    // Subscribe to sensor feedback (confirmed state from device)
-                    const sensorTopic = `users/${userId}/devices/${deviceCode}/sensors/#`;
-                    client.subscribe(sensorTopic, (topic, payload) => {
-                        handleSensorMessage(topic, payload);
+                            // Device connectivity status
+                            client.subscribe(`users/${userId}/devices/${deviceCode}/status`, (topic, payload) => {
+                                handleStatusMessage(payload);
+                            });
+                        };
+                    })
+                    .fail(function(xhr) {
+                        console.error('❌ Failed to fetch MQTT credentials:', xhr.status);
                     });
-
-                    // Device connectivity status
-                    client.subscribe(`users/${userId}/devices/${deviceCode}/status`, (topic, payload) => {
-                        handleStatusMessage(payload);
-                    });
-                };
 
                 // NOTE: onMessage intentionally NOT set here to avoid double-firing.
                 // The subscribe() callbacks above already handle all incoming messages.

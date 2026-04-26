@@ -20,7 +20,7 @@ class DeviceProvisioningController extends Controller
      * @param  string  $deviceCode
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getMqttConfig($deviceCode)
+    public function getMqttConfig(Request $request, $deviceCode)
     {
         $device = Device::where('device_code', $deviceCode)->first();
 
@@ -30,6 +30,11 @@ class DeviceProvisioningController extends Controller
                 'error_code' => 'DEVICE_NOT_FOUND',
                 'message'    => 'The provided device code is invalid or not registered.',
             ], 404);
+        }
+
+        // [SECURITY FIX C-2] Verify token owner matches device owner
+        if ($request->user()->id !== $device->user_id) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
         }
 
         // [SECURITY FIX C-2] Block unapproved devices from obtaining MQTT credentials

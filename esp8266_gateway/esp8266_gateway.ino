@@ -55,7 +55,7 @@
 //  [32-37] voltAC"***.**" (6)
 //  [38-42] currAC"**.**"  (5)
 //  [43-47] powAC "*****"  (5)
-#define NANO_ADDR   0x09
+#define NANO_ADDR 0x09
 #define NANO_BUFLEN 48
 
 // ── EEPROM ───────────────────────────────────────────────────
@@ -79,7 +79,7 @@ Config cfg;
 // kecuali POST /auth. Token berlaku 30 hari, di-cache di RAM.
 struct MqttInfo {
   char host[64];
-  int  port = 8883;
+  int port = 8883;
   char user[64];
   char pass[64];
   char base[96];   // users/{uid}/devices/{code}
@@ -101,15 +101,17 @@ int toggleCount = 0;
 
 // Widget gauge → sensor mapping (sorted by key)
 #define MAX_GAUGES 16
-struct GaugeEntry { char key[32]; };
+struct GaugeEntry {
+  char key[32];
+};
 GaugeEntry gauges[MAX_GAUGES];
 int gaugeCount = 0;
 
 // ── Sensors ───────────────────────────────────────────────────
 struct Sensors {
-  float b1 = 0, b2 = 0;             // Battery 1, 2
+  float b1 = 0, b2 = 0;                 // Battery 1, 2
   float t1 = 0, t2 = 0, t3 = 0, t4 = 0; // DS18B20 Temp 1-4
-  float v  = 0, i  = 0, p  = 0;    // PZEM: voltage, current, power
+  float v = 0, i = 0, p = 0;            // PZEM: voltage, current, power
 };
 Sensors sv;
 
@@ -214,7 +216,7 @@ int httpPost(const String &url, const String &body, String &resp) {
     return -1;
   http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("Accept",       "application/json");
+  http.addHeader("Accept", "application/json");
   int code = http.POST(body);
   resp = http.getString();
   http.end();
@@ -229,7 +231,7 @@ int httpGetAuth(const String &url, String &resp) {
   if (!http.begin(tlsHttp, url))
     return -1;
   http.setTimeout(8000);
-  http.addHeader("Accept",        "application/json");
+  http.addHeader("Accept", "application/json");
   http.addHeader("Authorization", String("Bearer ") + mi.token);
   int code = http.GET();
   resp = http.getString();
@@ -244,8 +246,8 @@ int httpPostAuth(const String &url, const String &body, String &resp) {
   if (!http.begin(tlsHttp, url))
     return -1;
   http.setTimeout(8000);
-  http.addHeader("Content-Type",  "application/json");
-  http.addHeader("Accept",        "application/json");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Accept", "application/json");
   http.addHeader("Authorization", String("Bearer ") + mi.token);
   int code = http.POST(body);
   resp = http.getString();
@@ -258,7 +260,7 @@ int httpPostAuth(const String &url, const String &body, String &resp) {
 // ════════════════════════════════════════════════════════════
 
 bool apiAuth() {
-  String url  = String(cfg.api) + "/api/devices/auth";
+  String url = String(cfg.api) + "/api/devices/auth";
   String body = "{\"device_code\":\"" + String(cfg.dev) + "\"}";
   String resp;
 
@@ -280,18 +282,19 @@ bool apiAuth() {
     return false;
   }
 
-  strlcpy(mi.host, doc["mqtt"]["host"]     | "x", sizeof(mi.host));
-  strlcpy(mi.user, doc["mqtt"]["username"] | "",  sizeof(mi.user));
-  strlcpy(mi.pass, doc["mqtt"]["password"] | "",  sizeof(mi.pass));
-  strlcpy(mi.base, doc["topics"]["base"]   | "",  sizeof(mi.base));
+  strlcpy(mi.host, doc["mqtt"]["host"] | "x", sizeof(mi.host));
+  strlcpy(mi.user, doc["mqtt"]["username"] | "", sizeof(mi.user));
+  strlcpy(mi.pass, doc["mqtt"]["password"] | "", sizeof(mi.pass));
+  strlcpy(mi.base, doc["topics"]["base"] | "", sizeof(mi.base));
   mi.port = doc["mqtt"]["port"] | 8883;
 
   // [NEW v2.3] Simpan Sanctum API token ke mi.token
   // Token ini WAJIB disertakan pada semua request selanjutnya
-  const char* tok = doc["api_token"] | "";
+  const char *tok = doc["api_token"] | "";
   if (strlen(tok) == 0) {
     Serial.println(F("[API] ❌ api_token tidak ada dalam response!"));
-    Serial.println(F("[API]    Pastikan server sudah di-update ke versi v2.3+"));
+    Serial.println(
+        F("[API]    Pastikan server sudah di-update ke versi v2.3+"));
     return false;
   }
   strlcpy(mi.token, tok, sizeof(mi.token));
@@ -299,7 +302,8 @@ bool apiAuth() {
 
   Serial.printf("[API] ✅  host=%s port=%d\n", mi.host, mi.port);
   Serial.printf("[API]    base=%s\n", mi.base);
-  Serial.printf("[API]    token=%s...\n", String(mi.token).substring(0, 20).c_str());
+  Serial.printf("[API]    token=%s...\n",
+                String(mi.token).substring(0, 20).c_str());
   return true;
 }
 
@@ -316,11 +320,12 @@ void apiFetchWidgets() {
   Serial.print(F("[API] Widgets → "));
   Serial.println(url);
 
-  // [SECURITY v2.3] Gunakan httpGetAuth — endpoint /widgets kini memerlukan token
+  // [SECURITY v2.3] Gunakan httpGetAuth — endpoint /widgets kini memerlukan
+  // token
   int code = httpGetAuth(url, resp);
   if (code == 401) {
     Serial.println(F("[API] ❌ Token expired/invalid — re-auth diperlukan"));
-    authOk = false;  // Trigger re-auth di loop()
+    authOk = false; // Trigger re-auth di loop()
     return;
   }
   if (code != 200) {
@@ -337,11 +342,11 @@ void apiFetchWidgets() {
 
   JsonObject widgets = doc["widgets"].as<JsonObject>();
   toggleCount = 0;
-  gaugeCount  = 0;
+  gaugeCount = 0;
   int relayIdx = 0;
 
   for (JsonPair kv : widgets) {
-    const char *key  = kv.key().c_str();
+    const char *key = kv.key().c_str();
     const char *type = kv.value()["type"] | "";
 
     if (strcmp(type, "toggle") == 0 && toggleCount < MAX_TOGGLES) {
@@ -350,8 +355,7 @@ void apiFetchWidgets() {
       Serial.printf("[Widget] %s \u2192 relay%d\n", key, relayIdx);
       toggleCount++;
       relayIdx++;
-    }
-    else if (gaugeCount < MAX_GAUGES) {
+    } else if (gaugeCount < MAX_GAUGES) {
       // Collect semua non-toggle widget (gauge, text, dll) untuk sensor mapping
       strlcpy(gauges[gaugeCount].key, key, sizeof(gauges[0].key));
       gaugeCount++;
@@ -370,10 +374,10 @@ void apiFetchWidgets() {
   }
 
   // Sensor names by index (urutan buffer Nano)
-  const char *sName[] = {"batt1","batt2","temp1","temp2",
-                          "temp3","temp4","voltage","current","power"};
-  Serial.printf("[Widget] %d toggle(s), %d gauge(s) mapped\n",
-                toggleCount, gaugeCount);
+  const char *sName[] = {"batt1", "batt2",   "temp1",   "temp2", "temp3",
+                         "temp4", "voltage", "current", "power"};
+  Serial.printf("[Widget] %d toggle(s), %d gauge(s) mapped\n", toggleCount,
+                gaugeCount);
   for (int i = 0; i < gaugeCount && i < 9; i++) {
     Serial.printf("  %s \u2192 sensor[%d]=%s\n", gauges[i].key, i, sName[i]);
   }
@@ -400,15 +404,15 @@ void publishSensors() {
     return;
 
   // Update sensor value array dari struct sv
-  sensorArr[0] = sv.b1;  // gauge1 = batt1
-  sensorArr[1] = sv.b2;  // gauge2 = batt2
-  sensorArr[2] = sv.t1;  // gauge3 = temp1
-  sensorArr[3] = sv.t2;  // gauge4 = temp2
-  sensorArr[4] = sv.t3;  // gauge5 = temp3
-  sensorArr[5] = sv.t4;  // gauge6 = temp4
-  sensorArr[6] = sv.v;   // gauge7 = voltage
-  sensorArr[7] = sv.i;   // gauge8 = current
-  sensorArr[8] = sv.p;   // gauge9 = power
+  sensorArr[0] = sv.b1; // gauge1 = batt1
+  sensorArr[1] = sv.b2; // gauge2 = batt2
+  sensorArr[2] = sv.t1; // gauge3 = temp1
+  sensorArr[3] = sv.t2; // gauge4 = temp2
+  sensorArr[4] = sv.t3; // gauge5 = temp3
+  sensorArr[5] = sv.t4; // gauge6 = temp4
+  sensorArr[6] = sv.v;  // gauge7 = voltage
+  sensorArr[7] = sv.i;  // gauge8 = current
+  sensorArr[8] = sv.p;  // gauge9 = power
 
   // Publish gauge widgets by sorted index order
   for (int i = 0; i < gaugeCount && i < 9; i++) {
@@ -427,7 +431,6 @@ void publishSensors() {
 
   Serial.println(F("[MQTT] ↑ published"));
 }
-
 
 void mqttCallback(char *topic, byte *payload, unsigned int len) {
   String msg, t;
@@ -471,8 +474,8 @@ bool mqttConnect() {
   mqtt.setBufferSize(512);
   mqtt.setKeepAlive(30);
 
-  // [SECURITY L-3 FIX] Gunakan chip ID (unik per hardware) + millis untuk client ID
-  // Lebih unpredictable dibanding format "ESP-DEVCODE-millis%9999"
+  // [SECURITY L-3 FIX] Gunakan chip ID (unik per hardware) + millis untuk
+  // client ID Lebih unpredictable dibanding format "ESP-DEVCODE-millis%9999"
   char cid[48];
   snprintf(cid, sizeof(cid), "ESP8266-%06X-%lu", ESP.getChipId(), millis());
   Serial.printf("[MQTT] Client ID: %s\n", cid);
@@ -505,8 +508,8 @@ bool mqttConnect() {
 //   }
 
 //   if (n != NANO_BUFLEN) {
-//     Serial.printf("[Nano] \u26a0 Hanya %d byte (butuh %d) \u2014 cek kabel & pullup\n", n, NANO_BUFLEN);
-//     while (Wire.available())
+//     Serial.printf("[Nano] \u26a0 Hanya %d byte (butuh %d) \u2014 cek kabel &
+//     pullup\n", n, NANO_BUFLEN); while (Wire.available())
 //       Wire.read();
 //     return;
 //   }
@@ -538,7 +541,8 @@ bool mqttConnect() {
 //   sv.i  = sub(38, 5);
 //   sv.p  = sub(43, 5);
 
-//   Serial.printf("[Nano] B=%.2f/%.2f | T=%.1f/%.1f/%.1f/%.1f | V=%.1f I=%.2f P=%.0f\n",
+//   Serial.printf("[Nano] B=%.2f/%.2f | T=%.1f/%.1f/%.1f/%.1f | V=%.1f I=%.2f
+//   P=%.0f\n",
 //                 sv.b1, sv.b2, sv.t1, sv.t2, sv.t3, sv.t4, sv.v, sv.i, sv.p);
 // }
 void pollNano() {
@@ -557,7 +561,8 @@ void pollNano() {
   n = Wire.requestFrom((uint8_t)NANO_ADDR, (uint8_t)32);
   if (n != 32) {
     Serial.printf("[Nano] ❌ Part1 gagal (%d)\n", n);
-    while (Wire.available()) Wire.read();
+    while (Wire.available())
+      Wire.read();
     return;
   }
 
@@ -577,7 +582,8 @@ void pollNano() {
   n = Wire.requestFrom((uint8_t)NANO_ADDR, (uint8_t)16);
   if (n != 16) {
     Serial.printf("[Nano] ❌ Part2 gagal (%d)\n", n);
-    while (Wire.available()) Wire.read();
+    while (Wire.available())
+      Wire.read();
     return;
   }
 
@@ -599,18 +605,19 @@ void pollNano() {
     return atof(tmp);
   };
 
-  sv.b1 = sub(0,  6);
-  sv.b2 = sub(6,  6);
+  sv.b1 = sub(0, 6);
+  sv.b2 = sub(6, 6);
   sv.t1 = sub(12, 5);
   sv.t2 = sub(17, 5);
   sv.t3 = sub(22, 5);
   sv.t4 = sub(27, 5);
-  sv.v  = sub(32, 6);
-  sv.i  = sub(38, 5);
-  sv.p  = sub(43, 5);
+  sv.v = sub(32, 6);
+  sv.i = sub(38, 5);
+  sv.p = sub(43, 5);
 
-  Serial.printf("[Nano] ✅ B=%.2f/%.2f | T=%.1f/%.1f/%.1f/%.1f | V=%.1f I=%.2f P=%.0f\n",
-                sv.b1, sv.b2, sv.t1, sv.t2, sv.t3, sv.t4, sv.v, sv.i, sv.p);
+  Serial.printf(
+      "[Nano] ✅ B=%.2f/%.2f | T=%.1f/%.1f/%.1f/%.1f | V=%.1f I=%.2f P=%.0f\n",
+      sv.b1, sv.b2, sv.t1, sv.t2, sv.t3, sv.t4, sv.v, sv.i, sv.p);
 }
 // ════════════════════════════════════════════════════════════
 // WIFI

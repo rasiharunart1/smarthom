@@ -17,6 +17,8 @@ class MqttListener extends Command
     protected $description = 'Listen for MQTT messages, update widgets, and log data to database';
 
     private $mqtt;
+    private int $retryCount = 0;
+    private const MAX_BACKOFF_SECONDS = 300;
 
     public function handle()
     {
@@ -27,6 +29,7 @@ class MqttListener extends Command
 
                 $this->connectToMqtt();
                 $this->subscribeToTopics();
+                $this->retryCount = 0; // Reset on successful connection
 
                 $this->mqtt->loop(true);
 
@@ -37,24 +40,30 @@ class MqttListener extends Command
                     'message' => $e->getMessage()
                 ]);
 
-                sleep(5);
+                // [SECURITY FIX Q-7] Exponential backoff to avoid hammering broker
+                $backoff = min(self::MAX_BACKOFF_SECONDS, (int)(5 * pow(2, $this->retryCount)));
+                $this->retryCount++;
 
-                $this->info(" Reconnecting MQTT...");
+                $this->info("⏳ Waiting {$backoff}s before reconnect (attempt #{$this->retryCount})...");
+                sleep($backoff);
+
+                $this->info("🔄 Reconnecting MQTT...");
             }
         }
     }
 
     private function connectToMqtt()
     {
-        $host = env('MQTT_HOST');
-        $port = (int) env('MQTT_PORT', 1883);
-        $username = env('MQTT_USERNAME');
-        $password = env('MQTT_PASSWORD');
+        // [SECURITY FIX C-5] Use config() instead of env() — env() returns null after config:cache
+        $host = config('mqtt.host');
+        $port = (int) config('mqtt.port', 8883);
+        $username = config('mqtt.username');
+        $password = config('mqtt.password');
 
         $settings = (new ConnectionSettings)
             ->setUsername($username)
             ->setPassword($password)
-            ->setUseTls((bool) env('MQTT_USE_TLS', false))
+            ->setUseTls((bool) config('mqtt.use_tls', false))
             ->setKeepAliveInterval(60);
 
         $clientId = "laravel-listener-" . uniqid();
@@ -292,7 +301,8 @@ class MqttListener extends Command
             case 'text':
             default:
 
-                return substr((string)$value,0,255);
+                // [SECURITY FIX I-3] Strip HTML tags to prevent stored XSS
+                return substr(strip_tags((string)$value), 0, 255);
         }
     }
 }
