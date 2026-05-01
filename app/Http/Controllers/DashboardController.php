@@ -50,8 +50,9 @@ class DashboardController extends Controller
         $selectedDevice = null;
 
         if ($devices->count() > 0) {
-            $selectedDeviceId = $request->input('device_id')
-                             ?? $request->session()->get('selected_device_id');
+            // [SECURITY FIX] device_id is ONLY read from session, never from GET query string.
+            // Use POST /dashboard/select to switch devices (keeps device_id out of the URL).
+            $selectedDeviceId = $request->session()->get('selected_device_id');
 
             if ($selectedDeviceId) {
                 if ($user->isAdmin()) {
@@ -143,10 +144,13 @@ class DashboardController extends Controller
     }
 
     /**
-     * Change selected device
+     * [SECURITY FIX] Change selected device via POST — device_id stays in request body,
+     * never appears in the browser URL bar.
      */
     public function selectDevice(Request $request)
     {
+        $request->validate(['device_id' => 'required|integer']);
+
         $deviceId = $request->input('device_id');
         $user     = Auth::user();
 

@@ -217,16 +217,16 @@ class MqttListener extends Command
                 $this->line("⏭️  Log skipped (disabled for user #{$device->user_id})");
             } else {
                 // 2. Check log interval throttle (per device + widget)
-                $interval = $user ? $user->getLogInterval() : 0;
+                //    Priority: device.log_interval override → user.log_interval → 0
+                $interval  = $device->getEffectiveLogInterval();
                 $shouldLog = true;
 
                 if ($interval > 0) {
                     $throttleKey = "log_throttle:{$device->id}:{$widgetKey}";
                     if (Cache::has($throttleKey)) {
                         $shouldLog = false;
-                        $this->line("⏱️  Log throttled [{$widgetKey}] interval={$interval}s");
+                        $this->line("⏱️  Log throttled [{$widgetKey}] interval={$interval}s (device #{$device->id})");
                     } else {
-                        // Mark this widget as "just logged", expires after interval seconds
                         Cache::put($throttleKey, true, $interval);
                     }
                 }

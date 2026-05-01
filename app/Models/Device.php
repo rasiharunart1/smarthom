@@ -23,20 +23,26 @@ class Device extends Model
         'is_approved',
         'approved_at',
         'approved_by',
+        'log_interval',   // Per-device override (null = inherit from user)
     ];
 
     protected $casts = [
-        'metadata'    => 'array',
-        'last_seen_at'=> 'datetime',
-        'lstm_enabled'=> 'boolean',
-        'lstm_config' => 'array',
-        'is_approved' => 'boolean',
-        'approved_at' => 'datetime',
+        'metadata'     => 'array',
+        'last_seen_at' => 'datetime',
+        'lstm_enabled' => 'boolean',
+        'lstm_config'  => 'array',
+        'is_approved'  => 'boolean',
+        'approved_at'  => 'datetime',
+        'log_interval' => 'integer',
     ];
 
+    /**
+     * Use numeric 'id' as the route key instead of 'device_code'.
+     * This prevents device_code (a sensitive credential) from being exposed in browser URLs.
+     */
     public function getRouteKeyName()
     {
-        return 'device_code';
+        return 'id';
     }
 
 
@@ -232,6 +238,33 @@ class Device extends Model
     }
 
 
+
+    /**
+     * Get the effective log interval for this device.
+     *
+     * Priority chain:
+     *   1. Device-level override  (device.log_interval NOT NULL)
+     *   2. User-level setting     (user.log_interval)
+     *   3. Default: 0             (log every value change)
+     */
+    public function getEffectiveLogInterval(): int
+    {
+        // Device override takes priority
+        if (!is_null($this->log_interval)) {
+            return (int) $this->log_interval;
+        }
+
+        // Fallback to owner's setting (relation may already be loaded)
+        return (int) ($this->user?->getLogInterval() ?? 0);
+    }
+
+    /**
+     * Whether this device has a device-level log interval override.
+     */
+    public function hasLogIntervalOverride(): bool
+    {
+        return !is_null($this->log_interval);
+    }
 
     /**
      * Check if LSTM is currently enabled/active

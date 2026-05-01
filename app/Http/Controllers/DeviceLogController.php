@@ -22,13 +22,14 @@ class DeviceLogController extends Controller
         Gate::authorize('view', $device);
         $query = DeviceLog::where('device_id', $device->id);
 
-        if ($request->has('start_date') && $request->has('end_date')) {
+        // Use filled() not has() — hidden inputs always submit, even when empty
+        if ($request->filled('start_date') && $request->filled('end_date')) {
             $start = Carbon::parse($request->start_date)->startOfDay();
             $end = Carbon::parse($request->end_date)->endOfDay();
             $query->whereBetween('created_at', [$start, $end]);
         }
 
-        if ($request->has('widget_key') && $request->widget_key != 'all') {
+        if ($request->filled('widget_key') && $request->widget_key != 'all') {
             $query->where('widget_key', $request->widget_key);
         }
 
@@ -233,7 +234,8 @@ class DeviceLogController extends Controller
             // 1. Get all logs respecting date filter
             $query = DeviceLog::where('device_id', $device->id);
             
-            if ($request->has('start_date') && $request->has('end_date')) {
+            // Use filled() not has() — hidden inputs always submit, even when empty
+            if ($request->filled('start_date') && $request->filled('end_date')) {
                 $start = Carbon::parse($request->start_date)->startOfDay();
                 $end = Carbon::parse($request->end_date)->endOfDay();
                 $query->whereBetween('created_at', [$start, $end]);
@@ -362,24 +364,59 @@ class DeviceLogController extends Controller
         $log = DeviceLog::where('device_id', $device->id)->findOrFail($logId);
         $log->delete();
 
-        return redirect()->back()->with('success', 'Log entry deleted successfully');
+        // Redirect to named route (not back()) to avoid re-submission on browser back
+        return redirect()
+            ->route('logs.index', $device->id)
+            ->with('success', 'Log entry deleted.');
     }
 
-    // Clear (Bulk Delete)
+    // Clear (Bulk Delete) — clears raw + all aggregated tables
     public function clear(Request $request, Device $device)
     {
         // [SECURITY FIX H-6] Only device owner or admin can bulk-clear logs
         Gate::authorize('update', $device);
-        $query = DeviceLog::where('device_id', $device->id);
 
-        if ($request->has('start_date') && $request->has('end_date')) {
+        $hasDateFilter = $request->filled('start_date') && $request->filled('end_date');
+
+        if ($hasDateFilter) {
             $start = Carbon::parse($request->start_date)->startOfDay();
-            $end = Carbon::parse($request->end_date)->endOfDay();
-            $query->whereBetween('created_at', [$start, $end]);
+            $end   = Carbon::parse($request->end_date)->endOfDay();
         }
 
-        $count = $query->delete();
+        // ── 1. Raw logs ─────────────────────────────────────
+        $rawQuery = DeviceLog::where('device_id', $device->id);
+        if ($hasDateFilter) {
+            $rawQuery->whereBetween('created_at', [$start, $end]);
+        }
+        $count = $rawQuery->delete();
 
-        return redirect()->back()->with('success', "Cleared {$count} log entries.");
+        // ── 2. Aggregated: 5-minute buckets ─────────────────
+        $agg5 = DeviceLog5Min::where('device_id', $device->id);
+        if ($hasDateFilter) {
+            $agg5->whereBetween('bucket_time', [$start, $end]);
+        }
+        $agg5->delete();
+
+        // ── 3. Aggregated: hourly buckets ───────────────────
+        $aggH = DeviceLogHourly::where('device_id', $device->id);
+        if ($hasDateFilter) {
+            $aggH->whereBetween('bucket_time', [$start, $end]);
+        }
+        $aggH->delete();
+
+        // ── 4. Aggregated: daily buckets ─────────────────────
+        $aggD = DeviceLogDaily::where('device_id', $device->id);
+        if ($hasDateFilter) {
+            $aggD->whereBetween('bucket_time', [$start, $end]);
+        }
+        $aggD->delete();
+
+        $scope = $hasDateFilter
+            ? "from {$request->start_date} to {$request->end_date}"
+            : 'all time';
+
+        return redirect()
+            ->route('logs.index', $device->id)
+            ->with('success', "Cleared {$count} raw log entries ({$scope}). Aggregated chart data also wiped.");
     }
 }

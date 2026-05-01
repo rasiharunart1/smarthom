@@ -1227,7 +1227,9 @@
             <!-- Device Selector (center in topbar) -->
             @if (request()->routeIs('dashboard') && isset($devices) && $devices->count() > 0)
                 <div class="device-selector-wrapper">
-                    <form action="{{ route('dashboard') }}" method="GET" class="device-selector">
+                    {{-- [SECURITY FIX] POST form so device_id never appears in the browser URL bar --}}
+                    <form action="{{ route('dashboard.select') }}" method="POST" class="device-selector">
+                        @csrf
                         <select name="device_id" class="form-control" onchange="this.form.submit()">
                             @foreach ($devices as $device)
                                 <option value="{{ $device->id }}"

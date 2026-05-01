@@ -39,7 +39,6 @@
                 </h1>
 
                 <small style="color: var(--text-muted);" id="last-seen" 
-                    data-device-code="{{ $selectedDevice->device_code }}"
                     data-last-seen="{{ $selectedDevice->last_seen_at ? $selectedDevice->last_seen_at->toIso8601String() : '' }}">
                     Last sync: {{ $selectedDevice->last_seen_at ? $selectedDevice->last_seen_at->diffForHumans() : 'Standby' }}
                 </small>
@@ -63,7 +62,7 @@
                 @if(auth()->user()->canUseLstm())
                     <button type="button" class="btn glass-button {{ $selectedDevice->lstm_enabled ? 'btn-ai-active' : '' }}" 
                         id="toggleLstmBtn"
-                        onclick="toggleLstm('{{ $selectedDevice->device_code }}')"
+                        data-device-id="{{ $selectedDevice->id }}"
                         style="width: auto; margin-top: 0; position: relative; overflow: hidden; {{ $selectedDevice->lstm_enabled ? 'background: rgba(139, 92, 246, 0.2); border-color: rgba(139, 92, 246, 0.5); color: #a78bfa;' : 'background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: var(--text-muted);' }}">
                         <i class="fas fa-brain mr-2 {{ $selectedDevice->lstm_enabled ? 'fa-pulse' : '' }}"></i>
                         <span id="lstmBtnText">{{ $selectedDevice->lstm_enabled ? 'AI Active' : 'AI Control' }}</span>
@@ -743,7 +742,7 @@
                         // Show loading state
                         $el.html('<div class="d-flex justify-content-center align-items-center h-100"><i class="fas fa-spinner fa-spin text-white"></i></div>');
 
-                        // Create Widget via AJAX
+                        // Create Widget via AJAX using the route helper (numeric device ID)
                         $.post('{{ route("widgets.store", $selectedDevice ?? 0) }}', {
                             _token: '{{ csrf_token() }}',
                             name: 'New ' + widgetType.charAt(0).toUpperCase() + widgetType.slice(1),
@@ -974,20 +973,35 @@
             protocol: '{{ config("mqtt.protocol") }}'
         };
 
-        const deviceCode = '{{ $selectedDevice->device_code ?? "" }}';
-        const userId = '{{ $selectedDevice->user_id ?? auth()->id() }}';
-        // isOwner: true if the logged-in user owns this device. Shared users must NOT write back to DB
-        // from sensor updates to avoid race condition / echo loops.
-        const isDeviceOwner = {{ auth()->id() == ($selectedDevice->user_id ?? null) ? 'true' : 'false' }};
+        // [SECURITY FIX] deviceCode and userId are NOT embedded in HTML.
+        // They are fetched securely from the AJAX endpoint (auth-gated) and set after the call below.
+        let deviceCode = null;
+        let userId     = null;
+        // isOwner: set after AJAX resolves — true if logged-in user owns this device.
+        // Shared users must NOT write back to DB from sensor updates to avoid race condition / echo loops.
+        const loggedInUserId = {{ auth()->id() }};
+        let isDeviceOwner = false;
+        // Numeric device ID — safe to expose (no security value, requires auth for all operations)
+        const currentDeviceId = {{ $selectedDevice->id ?? 'null' }};
 
         function initMqtt() {
             if (typeof window.mqttClient !== 'undefined') {
                 console.log('🚀 Dashboard: Initializing MQTT Session...');
                 
-                // [SECURITY FIX C-1] Fetch MQTT credentials via authenticated AJAX
-                // Credentials are NEVER embedded in HTML source code.
+                // [SECURITY FIX C-1] Fetch MQTT credentials + device context via authenticated AJAX.
+                // deviceCode, userId are NEVER embedded in HTML source.
                 $.getJSON('{{ route("mqtt.credentials") }}')
                     .done(function(creds) {
+                        // Set device context from secure AJAX response
+                        deviceCode    = creds.device_code || '';
+                        userId        = creds.owner_user_id || '';
+                        isDeviceOwner = (creds.owner_user_id === loggedInUserId);
+
+                        if (!deviceCode) {
+                            console.warn('⚠️ No device context in credentials — MQTT topics unavailable.');
+                            return;
+                        }
+
                         console.log('📡 MQTT credentials loaded, connecting...');
                         
                         window.mqttClient.connect({
@@ -1029,7 +1043,7 @@
             }
         }
 
-        if (deviceCode) {
+        if (true) { // Always attempt MQTT init; deviceCode will be set after creds AJAX resolves
             initMqtt();
         }
 
@@ -1079,7 +1093,8 @@
                 // causing the value to bounce back and forth (race condition).
                 if (isDeviceOwner) {
                     dbSyncTimers[widgetKey] = setTimeout(() => {
-                        $.post(`/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}/value`, {
+                        if (!deviceCode) return;
+                        $.post(`/devices/${currentDeviceId}/widgets/${widgetKey}/value`, {
                             value: message,
                             silent: 1,
                             _token: '{{ csrf_token() }}'
@@ -1286,10 +1301,11 @@
                 // (1) IMMEDIATE MQTT PUBLISH (WebSocket)
                 window.mqttClient.publish(topic, value.toString(), 0, false); 
 
-                // (2) DEFERRED DATABASE SYNC
+                // (2) DEFERRED DATABASE SYNC via numeric device ID (no device_code in URL)
                 clearTimeout(dbSyncTimers[widgetKey]);
                 dbSyncTimers[widgetKey] = setTimeout(() => {
-                    $.post(`/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}/value`, {
+                    if (!currentDeviceId) return;
+                    $.post(`/devices/${currentDeviceId}/widgets/${widgetKey}/value`, {
                         value: value,
                         silent: 1,
                         _token: '{{ csrf_token() }}'
@@ -1297,7 +1313,8 @@
                 }, 2000);
             } else {
                 console.warn('⚠️ MQTT Disconnected! Falling back to DB update...');
-                $.post(`/devices/{{ $selectedDevice->device_code ?? '' }}/widgets/${widgetKey}/value`, {
+                if (!currentDeviceId) return;
+                $.post(`/devices/${currentDeviceId}/widgets/${widgetKey}/value`, {
                     value: value,
                     _token: '{{ csrf_token() }}'
                 });
@@ -1409,7 +1426,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/devices/{{ $selectedDevice->device_code ?? 0 }}/widgets/${widgetKey}`,
+                        url: `/devices/${currentDeviceId}/widgets/${widgetKey}`,
                         method: 'POST',
                         data: {
                             _method: 'DELETE',
@@ -1446,9 +1463,8 @@
                 return;
             }
 
-            // Set Form Action
-            const deviceId = '{{ $selectedDevice->device_code ?? 0 }}';
-            $('#editWidgetForm').attr('action', `/devices/${deviceId}/widgets/${widgetKey}`);
+            // Set Form Action using numeric device ID (no device_code in URL)
+            $('#editWidgetForm').attr('action', `/devices/${currentDeviceId}/widgets/${widgetKey}`);
 
             // Populate Modal
             $('#editWidgetKey').val(widgetKey);
@@ -1704,8 +1720,8 @@
         window.deleteWidget = deleteWidget;
         window.editWidget = editWidget;
         window.addScheduleRow = addScheduleRow;
-        // LSTM Toggle Logic
-        function toggleLstm(deviceCode) {
+        // LSTM Toggle Logic — uses numeric device ID (not device_code)
+        function toggleLstm(deviceId) {
             const btn = document.getElementById('toggleLstmBtn');
             const icon = btn.querySelector('i');
             const text = document.getElementById('lstmBtnText');
@@ -1718,7 +1734,7 @@
             icon.className = 'fas fa-brain mr-2 fa-spin';
             btn.style.opacity = '0.7';
             
-            $.post(`/devices/${deviceCode}/lstm/toggle`, {
+            $.post(`/devices/${deviceId}/lstm/toggle`, {
                 _token: '{{ csrf_token() }}',
                 enabled: newState ? 1 : 0
             })
@@ -1764,6 +1780,15 @@
             })
             .always(function() {
                 btn.style.opacity = '1';
+            });
+        }
+        // Attach LSTM button click via event listener (not inline onclick)
+        // Reads device ID from data-device-id attribute — only numeric ID, no device_code exposed
+        const lstmBtn = document.getElementById('toggleLstmBtn');
+        if (lstmBtn) {
+            lstmBtn.addEventListener('click', function() {
+                const deviceId = this.getAttribute('data-device-id');
+                if (deviceId) toggleLstm(deviceId);
             });
         }
     </script>
