@@ -25,7 +25,7 @@
         <div class="form-group">
             <label class="glass-label" for="password">Password</label>
             <input id="password" type="password" name="password" required
-                class="glass-input @error('password') is-invalid @enderror" placeholder="••••••••">
+                class="glass-input @error('password') is-invalid @enderror" placeholder="•••••••••••">
             @error('password')
                 <div class="error-msg">{{ $message }}</div>
             @enderror
