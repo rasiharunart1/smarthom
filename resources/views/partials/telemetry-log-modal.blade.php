@@ -153,7 +153,7 @@
         $('#telemetryEmpty').hide();
         $('#telemetryLoading').show();
 
-        $.getJSON(`/devices/${deviceId}/telemetry/${widgetKey}?resolution=${resolution}`)
+        $.getJSON(`/telemetry/${widgetKey}?resolution=${resolution}`)
         .done(function(res) {
             $('#telemetryLoading').hide();
 

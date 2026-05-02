@@ -14,11 +14,13 @@ use Illuminate\Support\Facades\Mail;
 class DeviceShareController extends Controller
 {
     /**
-     * Show the share management page for a device.
+     * Show share management for the session device.
+     * GET /device/shares
      */
-    public function index($device)
+    public function index(Request $request)
     {
-        $device = $this->resolveDevice($device);
+        /** @var Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('share', $device);
 
         $shares = $device->shares()->with('sharedWith')->get();
@@ -27,11 +29,13 @@ class DeviceShareController extends Controller
     }
 
     /**
-     * Share a device with another user.
+     * Share session device with another user.
+     * POST /device/shares
      */
-    public function store(Request $request, $device)
+    public function store(Request $request)
     {
-        $device = $this->resolveDevice($device);
+        /** @var Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('share', $device);
 
         $validated = $request->validate([
@@ -39,20 +43,16 @@ class DeviceShareController extends Controller
             'permission' => 'required|in:view,control',
         ]);
 
-        // Find the target user
         $targetUser = User::where('email', $validated['email'])->firstOrFail();
 
-        // Cannot share with yourself
         if ($targetUser->id === Auth::id()) {
             return back()->with('error', 'Kamu tidak bisa berbagi device dengan dirimu sendiri.');
         }
 
-        // Cannot share with super admin
         if ($targetUser->isAdmin()) {
             return back()->with('error', 'Admin sudah memiliki akses ke semua device.');
         }
 
-        // Check if already shared
         $existing = DeviceShare::where('device_id', $device->id)
             ->where('shared_with_user_id', $targetUser->id)
             ->first();
@@ -62,17 +62,15 @@ class DeviceShareController extends Controller
         }
 
         DeviceShare::create([
-            'device_id'          => $device->id,
-            'shared_by_user_id'  => Auth::id(),
-            'shared_with_user_id'=> $targetUser->id,
-            'permission'         => $validated['permission'],
+            'device_id'           => $device->id,
+            'shared_by_user_id'   => Auth::id(),
+            'shared_with_user_id' => $targetUser->id,
+            'permission'          => $validated['permission'],
         ]);
 
-        // Send email notification to the shared user
         try {
             Mail::to($targetUser->email)->send(new DeviceSharedMail($device, Auth::user(), $targetUser, $validated['permission']));
         } catch (\Exception $e) {
-            // Don't fail the action if mail fails, just log it
             \Log::warning('DeviceShare mail failed: ' . $e->getMessage());
         }
 
@@ -80,14 +78,15 @@ class DeviceShareController extends Controller
     }
 
     /**
-     * Update permission level for an existing share.
+     * Update permission for an existing share.
+     * PUT /device/shares/{share}
      */
-    public function update(Request $request, $device, DeviceShare $share)
+    public function update(Request $request, DeviceShare $share)
     {
-        $device = $this->resolveDevice($device);
+        /** @var Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('share', $device);
 
-        // Make sure the share belongs to this device
         if ($share->device_id !== $device->id) {
             abort(403);
         }
@@ -103,10 +102,12 @@ class DeviceShareController extends Controller
 
     /**
      * Revoke access for a shared user.
+     * DELETE /device/shares/{share}
      */
-    public function destroy($device, DeviceShare $share)
+    public function destroy(Request $request, DeviceShare $share)
     {
-        $device = $this->resolveDevice($device);
+        /** @var Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('share', $device);
 
         if ($share->device_id !== $device->id) {
@@ -117,13 +118,5 @@ class DeviceShareController extends Controller
         $share->delete();
 
         return back()->with('success', "Akses {$userName} ke device ini telah dicabut.");
-    }
-
-    private function resolveDevice($id): Device
-    {
-        if (is_numeric($id)) {
-            return Device::findOrFail($id);
-        }
-        return Device::where('device_code', $id)->firstOrFail();
     }
 }

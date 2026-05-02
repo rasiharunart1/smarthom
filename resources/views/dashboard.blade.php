@@ -599,7 +599,7 @@
             }
 
             const period = widget.config?.period || '24h'; // Default to 24h
-            const url = `/devices/${deviceCode}/history`;
+            const url = `/history`;
             
             console.log(`📊 Chart ${widget.key}: Loading history for key: ${sourceKey}, Period: ${period}`);
             console.log(`📊 Chart ${widget.key}: API URL: ${url}?keys=${sourceKey}&period=${period}`);
@@ -1094,7 +1094,7 @@
                 if (isDeviceOwner) {
                     dbSyncTimers[widgetKey] = setTimeout(() => {
                         if (!deviceCode) return;
-                        $.post(`/devices/${currentDeviceId}/widgets/${widgetKey}/value`, {
+                        $.post(`/widgets/${widgetKey}/value`, {
                             value: message,
                             silent: 1,
                             _token: '{{ csrf_token() }}'
@@ -1305,7 +1305,7 @@
                 clearTimeout(dbSyncTimers[widgetKey]);
                 dbSyncTimers[widgetKey] = setTimeout(() => {
                     if (!currentDeviceId) return;
-                    $.post(`/devices/${currentDeviceId}/widgets/${widgetKey}/value`, {
+                    $.post(`/widgets/${widgetKey}/value`, {
                         value: value,
                         silent: 1,
                         _token: '{{ csrf_token() }}'
@@ -1426,7 +1426,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/devices/${currentDeviceId}/widgets/${widgetKey}`,
+                        url: `/widgets/${widgetKey}`,
                         method: 'POST',
                         data: {
                             _method: 'DELETE',
@@ -1464,7 +1464,7 @@
             }
 
             // Set Form Action using numeric device ID (no device_code in URL)
-            $('#editWidgetForm').attr('action', `/devices/${currentDeviceId}/widgets/${widgetKey}`);
+            $('#editWidgetForm').attr('action', `/widgets/${widgetKey}`);
 
             // Populate Modal
             $('#editWidgetKey').val(widgetKey);
@@ -1734,7 +1734,7 @@
             icon.className = 'fas fa-brain mr-2 fa-spin';
             btn.style.opacity = '0.7';
             
-            $.post(`/devices/${deviceId}/lstm/toggle`, {
+            $.post(`/device/lstm/toggle`, {
                 _token: '{{ csrf_token() }}',
                 enabled: newState ? 1 : 0
             })

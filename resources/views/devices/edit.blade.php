@@ -20,7 +20,7 @@
                     <h5 class="m-0 font-weight-bold" style="color: var(--primary-green-light);">Device Information</h5>
                 </div>
                 <div class="card-body p-4">
-                    <form action="{{ route('devices.update', $device) }}" method="POST">
+                    <form action="{{ route('device.update') }}" method="POST">
                         @csrf
                         @method('PUT')
 
@@ -83,7 +83,7 @@
                     <p class="small mb-3" style="color: var(--text-muted);">
                         Bagikan akses device ini ke user lain di platform. Kamu tetap sebagai pemilik penuh.
                     </p>
-                    <a href="{{ route('devices.shares.index', $device->device_code) }}" class="btn glass-button w-100" style="background: rgba(99,179,237,0.1); color: #90cdf4; border: 1px solid rgba(99,179,237,0.3);">
+                    <a href="{{ route('device.shares.index') }}" class="btn glass-button w-100" style="background: rgba(99,179,237,0.1); color: #90cdf4; border: 1px solid rgba(99,179,237,0.3);">
                         <i class="fas fa-share-alt mr-2"></i>Manage Sharing
                     </a>
                 </div>
@@ -100,7 +100,7 @@
                         <p class="small" style="color: var(--text-muted);">
                             Generating a new code will immediately invalidate the old one. Your device will disconnect until updated.
                         </p>
-                        <form action="{{ route('devices.regenerate-code', $device) }}" method="POST"
+                        <form action="{{ route('device.regenerate-code') }}" method="POST"
                             onsubmit="return confirm('Generate a new authentication code? This will disconnect your hardware.')">
                             @csrf
                             <button type="submit" class="btn glass-button btn-warning w-100" style="background: rgba(245, 158, 11, 0.1) !important; color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.3) !important;">

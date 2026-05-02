@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->append(\App\Http\Middleware\SecurityMiddleware::class);
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'admin'           => \App\Http\Middleware\AdminMiddleware::class,
+            'device.selected' => \App\Http\Middleware\EnsureDeviceSelected::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

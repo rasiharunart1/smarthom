@@ -14,9 +14,9 @@
                     Manage widget keys and configurations for {{ $device->name }}
                 </p>
             </div>
-            <a href="{{ route('devices.show', $device) }}" 
+            <a href="{{ route('dashboard') }}" 
                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                &larr; Back to Device
+                &larr; Back to Dashboard
             </a>
         </div>
 
@@ -101,7 +101,7 @@
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">No widgets found</h3>
                     <p class="mt-1 text-gray-500 dark:text-gray-400">Start by adding widgets to your device dashboard.</p>
                     <div class="mt-6">
-                        <a href="{{ route('devices.show', $device) }}" 
+                        <a href="{{ route('dashboard') }}" 
                            class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-lg shadow-indigo-500/30">
                             Go to Dashboard &rarr;
                         </a>
@@ -152,7 +152,7 @@
             // I should update the WidgetController to handle any field updates or add a specific one.
             // For now, let's just use the update endpoint if available, or I'll implement a new logic.
             
-            fetch("{{ route('widgets.update', [$device, 'WIDGET_KEY']) }}".replace('WIDGET_KEY', currentKey), {
+            fetch("{{ route('widgets.update', 'WIDGET_KEY') }}".replace('WIDGET_KEY', currentKey), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

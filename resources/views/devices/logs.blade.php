@@ -19,7 +19,7 @@
                 <button type="button" class="btn glass-button btn-primary mr-2" data-toggle="modal" data-target="#addLogModal">
                     <i class="fas fa-plus mr-2"></i>Add Log
                 </button>
-                <form action="{{ route('logs.clear', $device->id) }}" method="POST" class="d-inline"
+                <form action="{{ route('logs.clear') }}" method="POST" class="d-inline"
                       onsubmit="return confirm('Clear logs{{ request()->filled('start_date') ? ' from ' . request('start_date') . ' to ' . request('end_date') : ' for ALL time' }}?\n\nThis will also delete aggregated chart data (5min / hourly / daily) for the same period. This action cannot be undone.');">
                     @csrf
                     @method('DELETE')
@@ -41,7 +41,7 @@
     <!-- Filters -->
     <div class="col-12 mb-4">
         <div class="glass-card p-4">
-            <form method="GET" action="{{ route('logs.index', $device->id) }}">
+            <form method="GET" action="{{ route('logs.index') }}">
                 <div class="row align-items-end">
                     <div class="col-md-3 mb-3 mb-md-0">
                         <label class="glass-label text-xs">Start Date</label>
@@ -157,7 +157,7 @@
                                     </span>
                                 </td>
                                 <td class="py-3 px-4 border-bottom border-light-5 text-right">
-                                    <form action="{{ route('logs.destroy', ['device' => $device->id, 'log' => $log->id]) }}" method="POST" onsubmit="return confirm('Delete this log entry?');">
+                                    <form action="{{ route('logs.destroy', $log->id) }}" method="POST" onsubmit="return confirm('Delete this log entry?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-link text-danger p-0">
@@ -196,7 +196,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form action="{{ route('logs.store', $device->id) }}" method="POST">
+            <form action="{{ route('logs.store') }}" method="POST">
                 @csrf
                 <div class="modal-body">
                     <div class="form-group">
@@ -238,7 +238,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form action="{{ route('logs.export', $device->id) }}" method="GET">
+            <form action="{{ route('logs.export') }}" method="GET">
                 @if(request('start_date'))
                     <input type="hidden" name="start_date" value="{{ request('start_date') }}">
                 @endif
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             console.log(`Logs Chart: Fetching data [Res: ${resolution}, Live: ${isRealtime}]`);
 
-            fetch(`{{ route('devices.history', $device->id) }}?${params.toString()}`)
+            fetch(`{{ route('devices.history') }}?${params.toString()}`)
                .then(response => response.json())
                .then(data => {
                     if (!data.success) {

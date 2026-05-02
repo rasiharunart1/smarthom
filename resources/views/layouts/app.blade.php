@@ -1304,13 +1304,13 @@
                 <p class="nav-section-label">Device</p>
                 <ul class="nav-menu">
                     <li class="nav-menu-item">
-                        <a href="{{ route('widgets.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('widgets.index') ? 'active' : '' }}" data-tip="Widget Keys">
+                        <a href="{{ route('widgets.index') }}" class="nav-menu-link {{ request()->routeIs('widgets.index') ? 'active' : '' }}" data-tip="Widget Keys">
                             <i class="fas fa-key nav-menu-icon"></i>
                             <span>Widget Keys</span>
                         </a>
                     </li>
                     <li class="nav-menu-item">
-                        <a href="{{ route('logs.index', session('selected_device_code')) }}" class="nav-menu-link {{ request()->routeIs('logs.index') ? 'active' : '' }}" data-tip="Data Logs">
+                        <a href="{{ route('logs.index') }}" class="nav-menu-link {{ request()->routeIs('logs.index') ? 'active' : '' }}" data-tip="Data Logs">
                             <i class="fas fa-list-alt nav-menu-icon"></i>
                             <span>Data Logs</span>
                         </a>

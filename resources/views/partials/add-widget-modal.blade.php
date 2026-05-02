@@ -9,7 +9,7 @@
                     <span>&times;</span>
                 </button>
             </div>
-            <form id="addWidgetForm" action="{{ route('widgets.store', $device) }}" method="POST" enctype="multipart/form-data">
+            <form id="addWidgetForm" action="{{ route('widgets.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="modal-body py-4">
                     <div class="row">
@@ -108,8 +108,8 @@
         const widgetNameInput = document.getElementById('widgetName');
         const bulkNote = document.getElementById('bulkNote');
         const form = document.getElementById('addWidgetForm');
-        const bulkRoute = "{{ route('widgets.bulk-store', $device) }}";
-        const singleRoute = "{{ route('widgets.store', $device) }}";
+        const bulkRoute = "{{ route('widgets.bulk-store') }}";
+        const singleRoute = "{{ route('widgets.store') }}";
 
         qtyInput.addEventListener('input', function() {
             const qty = parseInt(this.value) || 1;

@@ -13,9 +13,11 @@ class WidgetController extends Controller
     /**
      * Display a listing of the widgets (Metadata Table)
      */
-    public function index(Device $device)
+    public function index(Request $request)
     {
-        // Check if user owns this device
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
+
         if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
             abort(403);
         }
@@ -29,8 +31,11 @@ class WidgetController extends Controller
     /**
      * Store a new widget
      */
-    public function store(Request $request, Device $device)
+    public function store(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
+
         // Check if user owns this device
         if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
             abort(403);
@@ -155,8 +160,11 @@ class WidgetController extends Controller
     /**
      * Store multiple widgets at once
      */
-    public function bulkStore(Request $request, Device $device)
+    public function bulkStore(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
+
         // Check if user owns this device
         if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
             abort(403);
@@ -281,9 +289,12 @@ class WidgetController extends Controller
     /**
      * Update a widget
      */
-    public function update(Request $request, Device $device, $widgetKey)
+    public function update(Request $request, $widgetKey)
     {
         try {
+            /** @var \App\Models\Device $device */
+            $device = $request->attributes->get('device');
+
             // Check if user owns this device
             if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
                 abort(403);
@@ -391,9 +402,12 @@ class WidgetController extends Controller
     /**
      * Delete a widget
      */
-    public function destroy(Device $device, $widgetKey)
+    public function destroy(Request $request, $widgetKey)
     {
         try {
+            /** @var \App\Models\Device $device */
+            $device = $request->attributes->get('device');
+
             // Check if user owns this device
             if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
                 abort(403);
@@ -458,8 +472,11 @@ class WidgetController extends Controller
     /**
      * Bulk update widget keys
      */
-    public function bulkUpdateKeys(Request $request, Device $device)
+    public function bulkUpdateKeys(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
+
         if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
             abort(403);
         }
@@ -501,8 +518,11 @@ class WidgetController extends Controller
     /**
      * Update widget positions (for drag & drop)
      */
-    public function updatePositions(Request $request, Device $device)
+    public function updatePositions(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
+
         if ($device->user_id !== auth()->id() && !auth()->user()->isAdmin()) {
             return response()->json([
                 'success' => false,
@@ -554,9 +574,12 @@ class WidgetController extends Controller
      * Update widget value (FROM UI - PUBLISH TO MQTT)
      * ✅ THIS IS THE KEY METHOD THAT SENDS CONTROL TO DEVICE
      */
-    public function updateValue(Request $request, Device $device, $widgetKey)
+    public function updateValue(Request $request, $widgetKey)
     {
         try {
+            /** @var \App\Models\Device $device */
+            $device = $request->attributes->get('device');
+
             $user = auth()->user();
             // Allow: device owner, admin, OR shared user with 'control' permission
             $isOwnerOrAdmin = $device->user_id === $user->id || $user->isAdmin();

@@ -41,10 +41,10 @@
             <button type="button" class="btn btn-success btn-sm shadow-sm" id="saveLayout" style="display: none;">
                 <i class="fas fa-save"></i> Save Layout
             </button>
-            <a href="{{ route('widgets.index', $device) }}" class="btn btn-info btn-sm shadow-sm" style="color: white; background: rgba(59, 130, 246, 0.8);">
+            <a href="{{ route('widgets.index') }}" class="btn btn-info btn-sm shadow-sm" style="color: white; background: rgba(59, 130, 246, 0.8);">
                 <i class="fas fa-list"></i> Widget Keys
             </a>
-            <a href="{{ route('devices.edit', $device) }}" class="btn btn-warning btn-sm shadow-sm">
+            <a href="{{ route('device.edit') }}" class="btn btn-warning btn-sm shadow-sm">
                 <i class="fas fa-cog"></i> Settings
             </a>
         </div>
@@ -338,7 +338,7 @@
             };
         });
 
-        $.post('{{ route('widgets.update-positions', $device) }}', {
+        $.post('{{ route('widgets.update-positions') }}', {
             positions: positions,
             _token: '{{ csrf_token() }}'
         }).done(() => {

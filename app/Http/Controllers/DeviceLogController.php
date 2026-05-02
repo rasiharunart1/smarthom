@@ -16,9 +16,10 @@ use Illuminate\Support\Facades\Response;
 class DeviceLogController extends Controller
 {
     // View Logs Page
-    public function index(Request $request, Device $device)
+    public function index(Request $request)
     {
-        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('view', $device);
         $query = DeviceLog::where('device_id', $device->id);
 
@@ -57,9 +58,10 @@ class DeviceLogController extends Controller
     }
 
     // API for Chart History
-    public function history(Request $request, Device $device)
+    public function history(Request $request)
     {
-        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('view', $device);
         $keys = explode(',', $request->query('keys', ''));
         $period = $request->query('period', '24h');
@@ -212,9 +214,10 @@ class DeviceLogController extends Controller
     }
 
     // Export to CSV (Pivoted Format: Timestamp, Widget1, Widget2,...)
-    public function export(Request $request, Device $device)
+    public function export(Request $request)
     {
-        // [SECURITY FIX H-6] Ensure the authenticated user owns or has access to this device
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('view', $device);
 
         $filename = "logs_{$device->device_code}_" . date('Ymd_His') . ".csv";
@@ -334,8 +337,10 @@ class DeviceLogController extends Controller
     }
 
     // Store (Manual Log Entry)
-    public function store(Request $request, Device $device)
+    public function store(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         // [SECURITY FIX H-6] Only device owner or admin can manually add log entries
         Gate::authorize('update', $device);
         $request->validate([
@@ -356,23 +361,27 @@ class DeviceLogController extends Controller
         return redirect()->back()->with('success', 'Log entry added successfully');
     }
 
-    // Destroy (Single Log)
-    public function destroy(Device $device, $logId)
+    // Destroy (Single Log) — verifies log belongs to session device (prevents IDOR)
+    public function destroy(Request $request, $logId)
     {
-        // [SECURITY FIX H-6] Only device owner or admin can delete logs
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         Gate::authorize('update', $device);
+
+        // Scope to session device to prevent IDOR
         $log = DeviceLog::where('device_id', $device->id)->findOrFail($logId);
         $log->delete();
 
-        // Redirect to named route (not back()) to avoid re-submission on browser back
         return redirect()
-            ->route('logs.index', $device->id)
+            ->route('logs.index')
             ->with('success', 'Log entry deleted.');
     }
 
     // Clear (Bulk Delete) — clears raw + all aggregated tables
-    public function clear(Request $request, Device $device)
+    public function clear(Request $request)
     {
+        /** @var \App\Models\Device $device */
+        $device = $request->attributes->get('device');
         // [SECURITY FIX H-6] Only device owner or admin can bulk-clear logs
         Gate::authorize('update', $device);
 
@@ -416,7 +425,7 @@ class DeviceLogController extends Controller
             : 'all time';
 
         return redirect()
-            ->route('logs.index', $device->id)
+            ->route('logs.index')
             ->with('success', "Cleared {$count} raw log entries ({$scope}). Aggregated chart data also wiped.");
     }
 }

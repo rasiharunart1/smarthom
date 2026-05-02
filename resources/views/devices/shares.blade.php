@@ -9,7 +9,7 @@
             <i class="fas fa-share-alt mr-2 text-primary"></i>Manage Sharing
             <small class="ml-2" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">{{ $device->name }}</small>
         </h1>
-        <a href="{{ route('devices.edit', $device->device_code) }}" class="btn glass-button btn-secondary" style="width: auto; margin-top: 0; padding: 0.5rem 1rem !important;">
+        <a href="{{ route('device.edit') }}" class="btn glass-button btn-secondary" style="width: auto; margin-top: 0; padding: 0.5rem 1rem !important;">
             <i class="fas fa-arrow-left mr-2"></i>Back to Device
         </a>
     </div>
@@ -40,7 +40,7 @@
                         Masukkan email akun yang terdaftar di platform ini. User akan menerima notifikasi via email.
                     </p>
 
-                    <form action="{{ route('devices.shares.store', $device->device_code) }}" method="POST">
+                    <form action="{{ route('device.shares.store') }}" method="POST">
                         @csrf
 
                         <div class="mb-4">
@@ -130,7 +130,7 @@
                                     {{-- Actions --}}
                                     <div class="d-flex" style="gap: 8px;">
                                         {{-- Toggle permission --}}
-                                        <form action="{{ route('devices.shares.update', [$device->device_code, $share->id]) }}" method="POST">
+                                        <form action="{{ route('device.shares.update', $share->id) }}" method="POST">
                                             @csrf
                                             @method('PUT')
                                             <input type="hidden" name="permission" value="{{ $share->permission === 'view' ? 'control' : 'view' }}">
@@ -141,7 +141,7 @@
                                             </button>
                                         </form>
                                         {{-- Revoke --}}
-                                        <form action="{{ route('devices.shares.destroy', [$device->device_code, $share->id]) }}" method="POST">
+                                        <form action="{{ route('device.shares.destroy', $share->id) }}" method="POST">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm action-btn action-btn-revoke"

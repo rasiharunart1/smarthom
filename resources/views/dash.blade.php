@@ -58,7 +58,7 @@
                 <button type="button" class="btn btn-success btn-sm shadow-sm" id="saveLayout" style="display: none;">
                     <i class="fas fa-save"></i> Save Layout
                 </button>
-                <a href="{{ route('devices.edit', $selectedDevice) }}" class="btn btn-warning btn-sm shadow-sm">
+                <a href="{{ route('device.edit') }}" class="btn btn-warning btn-sm shadow-sm">
                     <i class="fas fa-cog"></i> Settings
                 </a>
             </div>
@@ -342,7 +342,7 @@
             $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
 
             $.ajax({
-                url: '{{ isset($selectedDevice) && $selectedDevice ? route('widgets.update-positions', $selectedDevice) : '#' }}',
+                url: '{{ isset($selectedDevice) && $selectedDevice ? route('widgets.update-positions') : '#' }}',
                 method: 'POST',
                 data: {
                     positions: positions
@@ -684,7 +684,7 @@
             if (!confirm('Are you sure you want to delete this widget?')) return;
 
             $.ajax({
-                url: `/devices/{{ $selectedDevice->device_code }}/widgets/${widgetKey}`,
+                url: `/widgets/${widgetKey}`,
                 method: 'DELETE',
                 data: {
                     _token: '{{ csrf_token() }}'

@@ -85,11 +85,11 @@
                                                 <i class="fas fa-chart-line"></i>
                                             </a>
                                             @if(($device->_share_source ?? 'owned') === 'owned')
-                                                <a href="{{ route('devices.edit', $device) }}" 
+                                                <a href="{{ route('device.edit') }}" 
                                                    class="btn btn-sm mr-2" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2);" title="Settings">
                                                     <i class="fas fa-cog"></i>
                                                 </a>
-                                                <a href="{{ route('devices.shares.index', $device->device_code) }}"
+                                                <a href="{{ route('device.shares.index') }}"
                                                    class="btn btn-sm mr-2" style="background: rgba(99,179,237,0.1); color: #90cdf4; border: 1px solid rgba(99,179,237,0.2);" title="Manage Sharing">
                                                     <i class="fas fa-share-alt"></i>
                                                 </a>
