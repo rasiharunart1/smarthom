@@ -264,7 +264,8 @@
         
         .widget-wrapper {
             height: 100%;
-            padding: 5px;
+            padding: 6px;
+            box-sizing: border-box;
         }
         
         /* Placeholder when dragging */
@@ -1271,8 +1272,23 @@
             }
         }
 
-        // On page load: check existing widget values against thresholds
+        // On page load: initialize gauge arcs + check existing widget values against thresholds
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize gauge arcs with server-rendered values
+            @foreach($widgets as $w)
+                @if($w->type === 'gauge')
+                    if (window.updateGaugeModern) {
+                        window.updateGaugeModern(
+                            '{{ $w->key }}',
+                            '{{ $w->value ?? 0 }}',
+                            '{{ $w->min ?? 0 }}',
+                            '{{ $w->max ?? 100 }}'
+                        );
+                    }
+                @endif
+            @endforeach
+
+            // Check alert thresholds on existing values
             @foreach($widgets as $w)
                 @if(!empty($w->config['alert_enabled']) && !empty($w->value))
                     checkAlertThreshold('{{ $w->key }}', '{{ $w->value }}');

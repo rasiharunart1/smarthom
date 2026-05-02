@@ -160,8 +160,8 @@
             @break
 
             @case('chart')
-                <div class="widget-content-center" style="width: 100%; height: 100%; padding: 1rem;">
-                    <canvas id="chart-{{ $widget->key }}" style="max-width: 100%; max-height: 200px;"></canvas>
+                <div class="widget-content-chart">
+                    <canvas id="chart-{{ $widget->key }}"></canvas>
                 </div>
                 @if(config('app.debug'))
                     <div class="mqtt-topic-info mt-2">

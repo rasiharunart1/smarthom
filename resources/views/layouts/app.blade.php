@@ -482,10 +482,10 @@
             #content { padding: 1rem; }
             .widget-wrapper {
                 padding: 5px;
-                height: calc(100% - 10px);
+                height: 100%;
             }
             .value-large { font-size: 2rem; }
-            .gauge-modern-container { width: 120px; height: 120px; }
+            .gauge-modern-container { width: 110px; height: 110px; }
         }
 
         @media (max-width: 576px) {
@@ -699,9 +699,11 @@
         .card-body-modern {
             padding: 1rem;
             flex: 1;
+            min-height: 0; /* allow flex child to shrink below content size */
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
 
         .widget-content-center {
@@ -710,6 +712,23 @@
             align-items: center;
             justify-content: center;
             width: 100%;
+            height: 100%;
+        }
+
+        .widget-content-chart {
+            width: 100%;
+            height: 100%;
+            padding: 0.75rem;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .widget-content-chart canvas {
+            width: 100% !important;
+            height: 100% !important;
+            flex: 1;
+            min-height: 0;
         }
 
         .toggle-modern-wrapper {
@@ -855,6 +874,14 @@
             color: white !important;
         }
 
+        /* Widget cards need solid background — override the glass card rule */
+        .widget-card-modern.card {
+            background: #1a1f2e !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: 1px solid #2a3044 !important;
+        }
+
         /* Table Overrides */
         .table {
             color: white !important;
@@ -931,9 +958,20 @@
             opacity: 1;
         }
 
+        .gauge-modern-container {
+            position: relative;
+            width: clamp(110px, 75%, 190px);
+            height: clamp(110px, 75%, 190px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
         .gauge-svg {
             width: 100%;
             height: 100%;
+            display: block;
         }
 
         .gauge-value-overlay {
@@ -1036,13 +1074,13 @@
         }
 
         .grid-stack-item-content {
-            inset: 0 ! important;
-            overflow: visible !important;
+            inset: 0 !important;
+            overflow: hidden !important;
         }
 
         .widget-wrapper {
-            padding: 10px;
-            height: calc(100% - 20px);
+            padding: 8px;
+            height: 100%;
             box-sizing: border-box;
         }
 
